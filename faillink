@@ -1,0 +1,10 @@
+#!/bin/bash
+
+ethToKill=$1
+
+sudo ifconfig $ethToKill down
+
+#echo -n `date +"JOIN MSG SENT AT [%H:%M:%S:%N] ON"`
+#sudo echo "$ethToKill" was taken down at: >> linkFail.txt
+#sudo date +%H:%M:%S:%N >> linkFail.txt
+sudo echo `date +""$ethToKill" WAS TAKEN DOWN AT [%H:%M:%S:%6N]"` >> linkFail.txt

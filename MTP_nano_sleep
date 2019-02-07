@@ -1,0 +1,23 @@
+function sleep_until {
+  current_epoch=$(date +%s.%N)
+  target_epoch=$(date -d "$*" +%s.%N)
+
+  seconds=$(echo "$target_epoch - $current_epoch"|bc)
+  echo "Sleeping for $seconds seconds"
+  sleep $seconds
+}
+
+sudo pkill mtpd
+clear
+
+rootInput=$1
+timeInput=$2
+
+if [[ $rootInput == "y" ]]; then
+        startMTP='sudo bin/mtpd 1 1'
+else
+        startMTP='sudo bin/mtpd 0'
+fi
+
+sleep_until $timeInput
+$startMTP
