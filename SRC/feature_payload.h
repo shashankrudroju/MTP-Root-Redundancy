@@ -101,7 +101,7 @@ int  build_VID_CHANGE_PAYLOAD(uint8_t *, char *, char **, int);     // params - 
 bool isMain_VID_Table_Empty();
 int isChild(char *);
 
-/* Function Prototypes for MAIN VID Table Linked List */
+/* Function Prototypes for Primary VID Table Linked List */
 int add_entry_LL(struct vid_addr_tuple *);
 bool find_entry_LL(struct vid_addr_tuple *);
 void print_entries_LL();
@@ -109,10 +109,10 @@ bool update_hello_time_LL(struct ether_addr *);
 struct vid_addr_tuple* getInstance_vid_tbl_LL();
 bool delete_entry_LL(char *);
 
-/* Function Prototypes for BKP VID Table Linked List */
+/* Function Prototypes for Primary BKP VID Table Linked List */
 void print_entries_bkp_LL();
 
-/* Function Prototypes for CPVID table information */
+/* Function Prototypes for Primary CPVID table information */
 bool add_entry_cpvid_LL(struct child_pvid_tuple *);
 bool find_entry_cpvid_LL(struct child_pvid_tuple *);
 void print_entries_cpvid_LL();
@@ -121,6 +121,27 @@ bool delete_entry_cpvid_LL(char *);
 bool delete_MACentry_cpvid_LL(struct ether_addr *);
 bool update_hello_time_cpvid_LL(struct ether_addr *);
 bool update_entry_cpvid_LL(struct child_pvid_tuple *);
+
+/* Function Prototypes for Secondary VID Table Linked List */
+int add_entry_LL2(struct vid_addr_tuple *);
+bool find_entry_LL2(struct vid_addr_tuple *);
+void print_entries_LL2();
+bool update_hello_time_LL2(struct ether_addr *);
+struct vid_addr_tuple* getInstance_vid_tbl_LL2();
+bool delete_entry_LL2(char *);
+
+/* Function Prototypes for Secondary BKP VID Table Linked List */
+void print_entries_bkp_LL2();
+
+/* Function Prototypes for Secondary CPVID table information */
+bool add_entry_cpvid_LL2(struct child_pvid_tuple *);
+bool find_entry_cpvid_LL2(struct child_pvid_tuple *);
+void print_entries_cpvid_LL2();
+struct child_pvid_tuple* getInstance_cpvid_LL2();
+bool delete_entry_cpvid_LL2(char *);
+bool delete_MACentry_cpvid_LL2(struct ether_addr *);
+bool update_hello_time_cpvid_LL2(struct ether_addr *);
+bool update_entry_cpvid_LL2(struct child_pvid_tuple *);
 
 /* Function Prototypes for Local host broadcast information */
 bool add_entry_lbcast_LL(struct local_bcast_tuple *);
