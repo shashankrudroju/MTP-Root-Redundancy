@@ -253,13 +253,13 @@ void mtp_start() {
             int i = 0;
             uint8_t *payload = NULL;
             uint8_t payloadLen;
-            int type = 2;
+            int treeNo = 2;
             for (; i < numberOfInterfaces; i++) {
                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
                 // Shashank : When building the VID_ADVT payload send both the VID linkedlists
-                payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i]);
+                payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i],treeNo);
                 if (payloadLen) {
-                    ctrlSend(interfaceNames[i], payload, payloadLen, type);
+                    ctrlSend(interfaceNames[i], payload, payloadLen);
                     system("echo ADVT MSG SENT [looped bc root has come up]: >> MSTC.txt");
                     system("date +%H:%M:%S:%N >> MSTC.txt");
                     char eth[20];
@@ -370,9 +370,10 @@ void mtp_start() {
 
         memset(deletedVIDs, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
         int numberOfDeletions = checkForFailuresPrimary(deletedVIDs);
-        bool hasCPVIDDeletions = checkForFailuresCPVID();
+        bool hasCPVIDDeletions = checkForFailuresPrimaryCPVID();
 
         if (numberOfDeletions > 0) {
+            int treeNo = 1;
             uint8_t *payload = NULL;
             int payloadLen = 0;
 
@@ -382,8 +383,7 @@ void mtp_start() {
             int i = 0;
             for (; i < numberOfInterfaces; i++) {
                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs, numberOfDeletions);
-
+                payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs, numberOfDeletions,treeNo);
                 if (payloadLen) {
                     ctrlSend(interfaceNames[i], payload, payloadLen);
                     system("echo VID CHANGE MSG SENT [bc VID failure]: >> MSTC.txt");
@@ -397,12 +397,11 @@ void mtp_start() {
             for (; i < numberOfDeletions; i++) {
                 delete_entry_cpvid_LL(deletedVIDs[i]); //NS has exceeded expiry time and have not received hello
             }
-
             struct vid_addr_tuple *c1 = getInstance_vid_tbl_LL();
             if (c1 != NULL) {
                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
                 print_entries_LL();
-                payloadLen = build_VID_ADVT_PAYLOAD(payload, c1->eth_name);
+                payloadLen = build_VID_ADVT_PAYLOAD(payload, c1->eth_name, treeNo);
                 // NS announcing my parent that I have a PVID from him
                 if (payloadLen) {
                     ctrlSend(c1->eth_name, payload, payloadLen);
@@ -608,7 +607,7 @@ void mtp_start() {
                             uint8_t *payload = NULL;
                             int payloadLen = 0;
                             payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                            payloadLen = build_JOIN_MSG_PAYLOAD(payload);
+                            payloadLen = build_JOIN_MSG_PAYLOAD(payload, treeNo);
                             if (payloadLen) {
                                 ctrlSend(recvOnEtherPort, payload, payloadLen);
                                 system("echo JOIN MSG SENT [bc hello recieved]: >> MSTC.txt");
@@ -769,7 +768,7 @@ void mtp_start() {
                                     for (; i < numberOfInterfaces; i++) {
                                         payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
                                         payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs,
-                                                                              numberToDelete);
+                                                                              numberToDelete, treeNo);
 
                                         if (payloadLen) {
                                             ctrlSend(interfaceNames[i], payload, payloadLen);
@@ -1212,10 +1211,10 @@ void mtp_start() {
                             system("echo UNKNOWN ADVT RECEIVED: >> MSTC.txt");
                         }
 
-                        print_entries_LL()2;
+                        print_entries_LL2();
                         print_entries_bkp_LL2();
                         print_entries_cpvid_LL2();
-                        print_entries_lbcast_LL2();
+                        print_entries_lbcast_LL();
                         printf("----------------------------------------------------------\n");
                     }
                 }

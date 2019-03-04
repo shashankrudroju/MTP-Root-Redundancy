@@ -130,11 +130,12 @@ int  build_VID_ADVT_PAYLOAD(uint8_t *data, char *interface, int treeNo)
   int payloadLen = 4;
   int numAdvts = 0;
   int egressPort = 0;
+  struct vid_addr_tuple *current = NULL;
   if(treeNo == 1){
-      struct vid_addr_tuple *current = primary_vid_tbl_head;
+      current = primary_vid_tbl_head;
   }
   else{
-      struct vid_addr_tuple *current = secondary_vid_tbl_head;
+      current = secondary_vid_tbl_head;
   }
 
   // Port from where VID request came.

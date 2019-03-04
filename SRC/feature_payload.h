@@ -100,7 +100,8 @@ int  build_VID_ADVT_PAYLOAD(uint8_t *, char *,int);
 int  build_VID_CHANGE_PAYLOAD(uint8_t *, char *, char **, int, int);     // params - payload, interfacename, deleted VIDS, number of deleted VIDs
 bool isPrimary_VID_Table_Empty();
 bool isSecondary_VID_Table_Empty();
-int isChild(char *);
+int isPrimaryChild(char *);
+int isSecondaryChild(char *);
 
 /* Function Prototypes for Primary VID Table Linked List */
 int add_entry_LL(struct vid_addr_tuple *);
