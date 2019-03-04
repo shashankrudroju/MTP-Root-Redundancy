@@ -52,6 +52,8 @@ bool checkInterfaceIsActive(char *);
 // Shashank : Need two variables here. isPrimaryRoot and isSecondaryRoot
 bool isPrimaryRoot = false;
 
+bool isSecondaryRoot = false;
+
 // Shashank : Need a root priority variable that will set this priority to 1 as long as this root is up
 // Shashank : Once this root is down, we change its priority to 0 and make the secondary root's priority to 1
 
@@ -79,13 +81,23 @@ int main(int argc, char **argv) {
     //Check if Node is Root MTS or Non MTS, atoi converts a string argument into an integer (why >= 1 and not == 1?)
     // Shashank : Add extra condition and check if its primary of secondary and update the appropriate isPrimaryRoot flag to true
     // Shashank : Also need to set the priority of primary root to 1
-    if (atoi(argv[1]) = 1) {
+    if (atoi(argv[1]) == 1) {
         isPrimaryRoot = true;
         primaryRootVID = argv[2];
+        //  Check if Root VID is provided through CLI.
+        if (primaryRootVID == NULL) {
+            printf("Error: Provide ROOT Switch ID ./main <non MTS/root MTS> <ROOT MTS ID>\n");
+            exit(1);
+        }
     }
-    if (atoi(argv[1]) = 2) {
+    if (atoi(argv[1]) == 2) {
         isSecondaryRoot = true;
         secondaryRootVID = argv[2];
+        //  Check if Root VID is provided through CLI.
+        if (secondaryRootVID == NULL) {
+            printf("Error: Provide ROOT Switch ID ./main <non MTS/root MTS> <ROOT MTS ID>\n");
+            exit(1);
+        }
     }
 
     /*
@@ -164,12 +176,10 @@ void mtp_start() {
     // Shashank : Check if it is either primary root or secondary root and based on that create the node and add it to the appropriate linkedlist
     // If Node is Root MTS
     if (isPrimaryRoot) {
-        //  Check if Root VID is provided through CLI.
-        if (rootVID != NULL) {
             struct vid_addr_tuple *new_node = (struct vid_addr_tuple *) calloc(1, sizeof(struct vid_addr_tuple));
 
             // Create VID structure for user-defined root VID
-            strncpy(new_node->vid_addr, rootVID, strlen(rootVID));
+            strncpy(new_node->vid_addr, primaryRootVID, strlen(primaryRootVID));
             strcpy(new_node->eth_name,
                    "self");    // own interface, so mark it as self, will be helpful while tracking own VIDs.
             new_node->last_updated = -1;                // -1 here because root ID should not be removed.
@@ -179,18 +189,18 @@ void mtp_start() {
             new_node->path_cost = PATH_COST;
             new_node->membership = 1;
 
-            // Shashank : create another method like add_entry_LL_2 for adding to the secondary root VID linked list
             // Add into VID Table.
             add_entry_LL(new_node);
 
             int i = 0;
             uint8_t *payload = NULL;
             uint8_t payloadLen;
+            int treeNo = 1;
 
             for (; i < numberOfInterfaces; i++) {
                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                // Shashank : When building the VID_ADVT payload send both the VID linkedlists
-                payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i]);
+                // Shashank : When building the VID_ADVT payload send the appropriate VID linkedlist based on the treeNo
+                payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i],treeNo);
                 if (payloadLen) {
                     ctrlSend(interfaceNames[i], payload, payloadLen);
                     system("echo ADVT MSG SENT [looped bc root has come up]: >> MSTC.txt");
@@ -202,18 +212,31 @@ void mtp_start() {
                 }
                 free(payload);
             }
-        } else {
-            printf("Error: Provide ROOT Switch ID ./main <non MTS/root MTS> <ROOT MTS ID>\n");
-            exit(1);
+        // Sending join msg for tree 2
+        uint8_t *payload1 = NULL;
+        int payloadLen1 = 0;
+        treeNo = 2;
+        payload1 = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+        payloadLen1 = build_JOIN_MSG_PAYLOAD(payload1,treeNo);
+        system("echo hit init join for 2nd tree >> MSTC.txt");
+
+        if (payloadLen1) {
+            int i = 0;
+            for (; i < numberOfInterfaces; ++i) {
+                ctrlSend(interfaceNames[i], payload1, payloadLen1);
+                system("echo -n `date +\"JOIN MSG SENT AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
+                char eth[20];
+                sprintf(eth, "echo ' [%s]' >> MSTC.txt", interfaceNames[i]);
+                system(eth);
+            }
         }
+        free(payload1);
     }
     else if (isSecondaryRoot) {
-        //  Check if Root VID is provided through CLI.
-        if (secondaryRootVID != NULL) {
             struct vid_addr_tuple *new_node = (struct vid_addr_tuple *) calloc(1, sizeof(struct vid_addr_tuple));
 
             // Create VID structure for user-defined root VID
-            strncpy(new_node->vid_addr, rootVID, strlen(rootVID));
+            strncpy(new_node->vid_addr, secondaryRootVID, strlen(secondaryRootVID));
             strcpy(new_node->eth_name,
                    "self");    // own interface, so mark it as self, will be helpful while tracking own VIDs.
             new_node->last_updated = -1;                // -1 here because root ID should not be removed.
@@ -230,13 +253,13 @@ void mtp_start() {
             int i = 0;
             uint8_t *payload = NULL;
             uint8_t payloadLen;
-
+            int type = 2;
             for (; i < numberOfInterfaces; i++) {
                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
                 // Shashank : When building the VID_ADVT payload send both the VID linkedlists
                 payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i]);
                 if (payloadLen) {
-                    ctrlSend(interfaceNames[i], payload, payloadLen);
+                    ctrlSend(interfaceNames[i], payload, payloadLen, type);
                     system("echo ADVT MSG SENT [looped bc root has come up]: >> MSTC.txt");
                     system("date +%H:%M:%S:%N >> MSTC.txt");
                     char eth[20];
@@ -245,10 +268,25 @@ void mtp_start() {
                 }
                 free(payload);
             }
-        } else {
-            printf("Error: Provide ROOT Switch ID ./main <non MTS/root MTS> <ROOT MTS ID>\n");
-            exit(1);
+        // Sending join msg for tree 2
+        uint8_t *payload1 = NULL;
+        int payloadLen1 = 0;
+        treeNo = 1;
+        payload1 = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+        payloadLen1 = build_JOIN_MSG_PAYLOAD(payload1,treeNo);
+        system("echo hit init join for 2nd tree >> MSTC.txt");
+
+        if (payloadLen1) {
+            int i = 0;
+            for (; i < numberOfInterfaces; ++i) {
+                ctrlSend(interfaceNames[i], payload1, payloadLen1);
+                system("echo -n `date +\"JOIN MSG SENT AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
+                char eth[20];
+                sprintf(eth, "echo ' [%s]' >> MSTC.txt", interfaceNames[i]);
+                system(eth);
+            }
         }
+        free(payload1);
     }
     else {
         //-----------------------initial join--------------------------
@@ -256,15 +294,14 @@ void mtp_start() {
         int payloadLen = 0;
 
         payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-
-        payloadLen = build_JOIN_MSG_PAYLOAD(payload);
+        int treeNo = 1;
+        payloadLen = build_JOIN_MSG_PAYLOAD(payload,treeNo);
         system("echo hit init join >> MSTC.txt");
 
         if (payloadLen) {
             int i = 0;
             for (; i < numberOfInterfaces; ++i) {
                 ctrlSend(interfaceNames[i], payload, payloadLen);
-
                 system("echo -n `date +\"JOIN MSG SENT AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
                 char eth[20];
                 sprintf(eth, "echo ' [%s]' >> MSTC.txt", interfaceNames[i]);
@@ -272,6 +309,28 @@ void mtp_start() {
             }
         }
         free(payload);
+
+        uint8_t *payload1 = NULL;
+        int payloadLen1 = 0;
+
+        payload1 = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+        treeNo = 2;
+        payloadLen1 = build_JOIN_MSG_PAYLOAD(payload,treeNo);
+        system("echo hit init join >> MSTC.txt");
+
+        if (payloadLen1) {
+            int i = 0;
+            for (; i < numberOfInterfaces; ++i) {
+                ctrlSend(interfaceNames[i], payload1, payloadLen1);
+                system("echo -n `date +\"JOIN MSG SENT AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
+                char eth[20];
+                sprintf(eth, "echo ' [%s]' >> MSTC.txt", interfaceNames[i]);
+                system(eth);
+            }
+        }
+        free(payload1);
+
+
         //-----------------------inital join--------------------------
     }
     //----------------------------------------------------------------------------
@@ -282,7 +341,7 @@ void mtp_start() {
 
         struct interface_tracker_t *currentInterface = interface_head;
         while (currentInterface != NULL) {
-            if (checkInterfaceIsActive(currentInterface->eth_name) != true) {
+            if (!checkInterfaceIsActive(currentInterface->eth_name)) {
                 /*just for recording purposes*/
                 if (currentInterface->isUP == true) {
                     system("echo -n `date +\"A LINK FAILURE WAS FOUND AT [%H:%M:%S:%6N] ON\"` >> linkFail.txt");
@@ -310,7 +369,7 @@ void mtp_start() {
         }
 
         memset(deletedVIDs, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
-        int numberOfDeletions = checkForFailures(deletedVIDs);
+        int numberOfDeletions = checkForFailuresPrimary(deletedVIDs);
         bool hasCPVIDDeletions = checkForFailuresCPVID();
 
         if (numberOfDeletions > 0) {
@@ -369,18 +428,17 @@ void mtp_start() {
             int numberOfInterfaces = getActiveInterfaces(interfaceNames);
             uint8_t *payload = NULL;
             int payloadLen = 0;
+            int treeNo;
 
-            if (isMain_VID_Table_Empty()) {
+            if (isPrimary_VID_Table_Empty()) {
                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-
-                payloadLen = build_JOIN_MSG_PAYLOAD(payload);
+                treeNo = 1;
+                payloadLen = build_JOIN_MSG_PAYLOAD(payload,treeNo);
                 system("echo hit empty join >> MSTC.txt");
-
                 if (payloadLen) {
                     int i = 0;
                     for (; i < numberOfInterfaces; ++i) {
                         ctrlSend(interfaceNames[i], payload, payloadLen);
-
                         system("echo JOIN MSGGG SENT: >> MSTC.txt");
                         system("date +%H:%M:%S:%N >> MSTC.txt");
                         char eth[20];
@@ -390,10 +448,9 @@ void mtp_start() {
                 }
                 free(payload);
             } else {
-                if (!isRoot || (isRoot && getInstance_cpvid_LL() != NULL)) {
+                if (!isPrimaryRoot || (isPrimaryRoot && getInstance_cpvid_LL() != NULL)) {
                     payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
                     payloadLen = build_PERIODIC_MSG_PAYLOAD(payload);
-
                     if (payloadLen) {
                         int i = 0;
                         for (; i < numberOfInterfaces; ++i) {
@@ -451,7 +508,7 @@ void mtp_start() {
                 // This is a MTP frame so, incase this port is in Local host broadcast table remove it.
                 delete_entry_lbcast_LL(recvOnEtherPort);
             }
-
+            int treeNo = 0;
             //switch statement for 14th index of recvBuffer (frame),
             switch (recvBuffer[14]) {
                 //printf("\n MTP received VALID ctrl message");
@@ -459,36 +516,62 @@ void mtp_start() {
                  *MT_JOIN - this message is sent by a switch that hears  MT_ADVT messages on its ports and desires to join on one of the tree branches the *advertised in the MT_VIDs.
                 */
                 case MTP_TYPE_JOIN_MSG: {
+                    treeNo = (int) recvBuffer[15];
+                    if(treeNo == 1) {
+                        system("echo JOIN MSG RECIEVED from tree 1: >> MSTC.txt");
+                        system("date +%H:%M:%S:%N >> MSTC.txt");
 
-                    system("echo JOIN MSG RECIEVED: >> MSTC.txt");
-                    system("date +%H:%M:%S:%N >> MSTC.txt");
+                        char eth[20];
+                        sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
+                        system(eth);
 
-                    char eth[20];
-                    sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
-                    system(eth);
+                        //if the Primary VID table is empty, we can't be sending ADVT's out, we don't have anything to ADVT!
+                        if (!isPrimary_VID_Table_Empty()) {
+                            uint8_t *payload = NULL;
+                            int payloadLen = 0;
+                            payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                            // recvOnEtherPort - Payload destination will same from where Join message has orginated.
+                            payloadLen = build_VID_ADVT_PAYLOAD(payload, recvOnEtherPort,treeNo);
+                            if (payloadLen) {
+                                ctrlSend(recvOnEtherPort, payload, payloadLen);
+                                system("echo ADVT MSG SENT [bc JOIN recieved]: >> MSTC.txt");
+                                system("date +%H:%M:%S:%N >> MSTC.txt");
+                                char eth[20];
+                                sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
+                                system(eth);
+                            }
 
-                    //if the VID table is empty, we can't be sending ADVT's out, we don't have anything to ADVT!
-                    if (!isMain_VID_Table_Empty()) {
-                        uint8_t *payload = NULL;
-                        int payloadLen = 0;
-                        payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                        // recvOnEtherPort - Payload destination will same from where Join message has orginated.
-                        payloadLen = build_VID_ADVT_PAYLOAD(payload, recvOnEtherPort);
-
-                        if (payloadLen) {
-
-                            ctrlSend(recvOnEtherPort, payload, payloadLen);
-                            system("echo ADVT MSG SENT [bc JOIN recieved]: >> MSTC.txt");
-                            system("date +%H:%M:%S:%N >> MSTC.txt");
-
-                            char eth[20];
-                            sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
-                            system(eth);
-
+                            free(payload);
+                            // Send VID Advt
                         }
+                    }
+                    else{
+                        system("echo JOIN MSG RECIEVED from tree 2: >> MSTC.txt");
+                        system("date +%H:%M:%S:%N >> MSTC.txt");
 
-                        free(payload);
-                        // Send VID Advt
+                        char eth[20];
+                        sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
+                        system(eth);
+
+                        //if the Secondary VID table is empty, we can't be sending ADVT's out, we don't have anything to ADVT!
+                        if (!isSecondary_VID_Table_Empty()) {
+                            uint8_t *payload = NULL;
+                            int payloadLen = 0;
+                            payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                            // recvOnEtherPort - Payload destination will same from where Join message has orginated.
+                            payloadLen = build_VID_ADVT_PAYLOAD(payload, recvOnEtherPort, treeNo);
+                            if (payloadLen) {
+                                ctrlSend(recvOnEtherPort, payload, payloadLen);
+                                system("echo ADVT MSG SENT [bc JOIN recieved]: >> MSTC.txt");
+                                system("date +%H:%M:%S:%N >> MSTC.txt");
+                                char eth[20];
+                                sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
+                                system(eth);
+                            }
+
+                            free(payload);
+                            // Send VID Advt
+                        }
                     }
                 }
 
@@ -507,6 +590,7 @@ void mtp_start() {
                     */
 
                     // Record MAC ADDRESS, if not already present.
+                    treeNo = (int) recvBuffer[15];
                     struct ether_addr src_mac;
                     bool retMainVID, retCPVID;
 
@@ -514,13 +598,13 @@ void mtp_start() {
                     retMainVID = update_hello_time_LL(&src_mac);
                     retCPVID = update_hello_time_cpvid_LL(&src_mac);
 
-                    if ((retMainVID == true) || (retCPVID == true)) {
+                    if (retMainVID || retCPVID) {
                         //Hello Keep-alive recieved, empty conditional is inefficent...need to fix this at some point
                     }
 
                         //10/18/17 - delay in convergence occuring because this is the first occurance of a join happening [fixed]
                     else {
-                        if (!isRoot) {
+                        if (!isPrimaryRoot) {
                             uint8_t *payload = NULL;
                             int payloadLen = 0;
                             payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
@@ -544,298 +628,596 @@ void mtp_start() {
                      *MT_ADVT – A switch which already has an MT_VID, when it receives an MT_NULL message on a port, will move that port to be an MT_port. It will *then send an MT_ADVT message that contains a unique MT_VID that the new switch can use. This MT_VID will be one of its The MT_ADVT message can *also be sent on receiving an MT_JOIN message defined next.
                     */
                 case MTP_TYPE_VID_ADVT: {
-                    char *mainVIDs[3] = {NULL, NULL, NULL};
+                    treeNo = (int) recvBuffer[17];
+                    if (treeNo == 1) {
+                        char *mainVIDs[3] = {NULL, NULL, NULL};
 
-                    system("echo -n `date +\"\n\nADVT MSG RECIEVED AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
-                    char eth[30];
-                    sprintf(eth, "echo -n ' [%s]' >> MSTC.txt", recvOnEtherPort);
-                    system(eth);
+                        system("echo -n `date +\"\n\nADVT MSG RECIEVED AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
+                        char eth[30];
+                        sprintf(eth, "echo -n ' [%s]' >> MSTC.txt", recvOnEtherPort);
+                        system(eth);
 
-                    if (sizeOfVIDTable() >= 3) {
-                        struct vid_addr_tuple *currentTable = getInstance_vid_tbl_LL();
-                        int i = 0;
-                        for (i = 0; i < 3; i++) {
-                            mainVIDs[i] = currentTable->vid_addr;
-                            currentTable = currentTable->next;
-                        }
-                    }
-
-                    //second byte of the MTP payload is the Operation field, adding a VID (VID_ADD) = 1, removing a VID = 2
-                    uint8_t operation = (uint8_t) recvBuffer[15];
-
-                    if (operation == VID_ADD) {
-                        uint8_t numberVIDS = (uint8_t) recvBuffer[16];
-                        int tracker = 17;
-                        bool hasAdditions = false;
-                        bool mainVIDTableChange = false;
-
-                        system("echo -n ' [ADD] ' >> MSTC.txt");
-
-
-                        //running through all of the VID's recieved in the ADVT
-                        while (numberVIDS != 0) {
-                            // <VID_PATH_COST>
-                            uint8_t path_cost = (uint8_t) recvBuffer[tracker];
-                            // next byte
-                            tracker = tracker + 1;
-
-                            // <VID_ADDR_LEN>
-                            uint8_t vid_len = recvBuffer[tracker];
-                            // next byte
-                            tracker = tracker + 1;
-
-                            // <VID_ADDR>
-                            char vid_addr[vid_len];
-                            memset(vid_addr, '\0', vid_len);
-                            strncpy(vid_addr, &recvBuffer[tracker], vid_len);
-                            vid_addr[vid_len] = '\0';
-
-                            //stack smash
-                            char checkVID[100];
-                            sprintf(checkVID, "echo -n ' %s' >> MSTC.txt", vid_addr);
-                            system(checkVID);
-
-                            // next byte after length of VID
-                            tracker += vid_len;
-
-                            //returns an int to tell protocol if VID is a child of a current main or backup table VID
-                            int ret = isChild(vid_addr);
-
-                            // if VID child check, incase part of PVID add to Child PVID table.
-                            if (ret == 1) {
-                                // if this is the first VID in the table and is a child, we have to add into child PVID Table
-                                if (numberVIDS == (uint8_t) recvBuffer[16]) {
-                                    // if same first ID
-                                    struct child_pvid_tuple *new_cpvid = (struct child_pvid_tuple *) calloc(1,
-                                                                                                            sizeof(struct child_pvid_tuple));
-
-                                    // Fill data.
-                                    strncpy(new_cpvid->vid_addr, vid_addr, strlen(vid_addr));
-                                    strncpy(new_cpvid->child_port, recvOnEtherPort, strlen(recvOnEtherPort));
-                                    memcpy(&new_cpvid->mac, (struct ether_addr *) &eheader->ether_shost,
-                                           sizeof(struct ether_addr));
-                                    new_cpvid->next = NULL;
-                                    new_cpvid->last_updated = time(0); // last updated time
-
-                                    //Add into child PVID table, if already there update it if any changes.
-                                    if (add_entry_cpvid_LL(new_cpvid)) {
-                                        system("echo [Added to CPVID table] >> MSTC.txt");
-                                    } else {
-                                        //if already there deallocate node memory
-                                        free(new_cpvid);
-                                        //update CPVID time here
-                                    }
-                                }
+                        if (sizeOfPrimaryVIDTable() >= 3) {
+                            struct vid_addr_tuple *currentTable = getInstance_vid_tbl_LL();
+                            int i = 0;
+                            for (i = 0; i < 3; i++) {
+                                mainVIDs[i] = currentTable->vid_addr;
+                                currentTable = currentTable->next;
                             }
+                        }
 
-                                // Add to Main VID Table, if not a child, make it PVID if there is no better path already in the table.
-                            else if (ret == -1) {
-                                // Allocate memory and intialize(calloc).
-                                struct vid_addr_tuple *new_node = (struct vid_addr_tuple *) calloc(1,
-                                                                                                   sizeof(struct vid_addr_tuple));
+                        //second byte of the MTP payload is the Operation field, adding a VID (VID_ADD) = 1, removing a VID = 2
+                        uint8_t operation = (uint8_t) recvBuffer[15];
 
-                                // Fill in data for new VID
-                                strncpy(new_node->vid_addr, vid_addr, strlen(vid_addr)); //VID Address
-                                strncpy(new_node->eth_name, recvOnEtherPort,
-                                        strlen(recvOnEtherPort)); //Incoming Ethernet Port Name
-                                new_node->last_updated = time(0); // current timestamp
-                                new_node->port_status = PVID_PORT; //Port Type
-                                new_node->next = NULL; //Linked List Hook
-                                new_node->isNew = true; //Is New
-                                new_node->membership = 0;     // Intialize with '0', will find outpreference based on cost during add method.
-                                new_node->path_cost = (uint8_t) path_cost; //Path Cost
-                                memcpy(&new_node->mac, (struct ether_addr *) &eheader->ether_shost,
-                                       sizeof(struct ether_addr)); //Source MAC address of VID ADVT
+                        if (operation == VID_ADD) {
+                            uint8_t numberVIDS = (uint8_t) recvBuffer[16];
+                            int tracker = 18;
+                            bool hasAdditions = false;
+                            bool mainVIDTableChange = false;
 
-                                // Add into VID Table, if addition success, update all other connected peers about the change.
-                                int mainVIDTracker = add_entry_LL(new_node);
+                            system("echo -n ' [ADD] ' >> MSTC.txt");
 
-                                if (mainVIDTracker > 0) {
 
-                                    if (mainVIDTracker == 1) {
-                                        system("echo [added to Main VID Table] >> MSTC.txt");
-                                        hasAdditions = true;
-                                    }
+                            //running through all of the VID's recieved in the ADVT
+                            while (numberVIDS != 0) {
+                                // <VID_PATH_COST>
+                                uint8_t path_cost = (uint8_t) recvBuffer[tracker];
+                                // next byte
+                                tracker = tracker + 1;
 
-                                    // If peer has VID derived from me earlier and has a change now.
+                                // <VID_ADDR_LEN>
+                                uint8_t vid_len = recvBuffer[tracker];
+                                // next byte
+                                tracker = tracker + 1;
+
+                                // <VID_ADDR>
+                                char vid_addr[vid_len];
+                                memset(vid_addr, '\0', vid_len);
+                                strncpy(vid_addr, &recvBuffer[tracker], vid_len);
+                                vid_addr[vid_len] = '\0';
+
+                                //stack smash
+                                char checkVID[100];
+                                sprintf(checkVID, "echo -n ' %s' >> MSTC.txt", vid_addr);
+                                system(checkVID);
+
+                                // next byte after length of VID
+                                tracker += vid_len;
+
+                                //returns an int to tell protocol if VID is a child of a current main or backup table VID
+                                int ret = isPrimaryChild(vid_addr);
+
+                                // if VID child check, incase part of PVID add to Child PVID table.
+                                if (ret == 1) {
+                                    // if this is the first VID in the table and is a child, we have to add into child PVID Table
                                     if (numberVIDS == (uint8_t) recvBuffer[16]) {
-                                        // Check PVID used by peer is a derived PVID from me.
-                                        delete_MACentry_cpvid_LL(&new_node->mac);
+                                        // if same first ID
+                                        struct child_pvid_tuple *new_cpvid = (struct child_pvid_tuple *) calloc(1,
+                                                                                                                sizeof(struct child_pvid_tuple));
+
+                                        // Fill data.
+                                        strncpy(new_cpvid->vid_addr, vid_addr, strlen(vid_addr));
+                                        strncpy(new_cpvid->child_port, recvOnEtherPort, strlen(recvOnEtherPort));
+                                        memcpy(&new_cpvid->mac, (struct ether_addr *) &eheader->ether_shost,
+                                               sizeof(struct ether_addr));
+                                        new_cpvid->next = NULL;
+                                        new_cpvid->last_updated = time(0); // last updated time
+
+                                        //Add into child PVID table, if already there update it if any changes.
+                                        if (add_entry_cpvid_LL(new_cpvid)) {
+                                            system("echo [Added to CPVID table] >> MSTC.txt");
+                                        } else {
+                                            //if already there deallocate node memory
+                                            free(new_cpvid);
+                                            //update CPVID time here
+                                        }
+                                    }
+                                }
+
+                                    // Add to Main VID Table, if not a child, make it PVID if there is no better path already in the table.
+                                else if (ret == -1) {
+                                    // Allocate memory and intialize(calloc).
+                                    struct vid_addr_tuple *new_node = (struct vid_addr_tuple *) calloc(1,
+                                                                                                       sizeof(struct vid_addr_tuple));
+
+                                    // Fill in data for new VID
+                                    strncpy(new_node->vid_addr, vid_addr, strlen(vid_addr)); //VID Address
+                                    strncpy(new_node->eth_name, recvOnEtherPort,
+                                            strlen(recvOnEtherPort)); //Incoming Ethernet Port Name
+                                    new_node->last_updated = time(0); // current timestamp
+                                    new_node->port_status = PVID_PORT; //Port Type
+                                    new_node->next = NULL; //Linked List Hook
+                                    new_node->isNew = true; //Is New
+                                    new_node->membership = 0;     // Intialize with '0', will find outpreference based on cost during add method.
+                                    new_node->path_cost = (uint8_t) path_cost; //Path Cost
+                                    memcpy(&new_node->mac, (struct ether_addr *) &eheader->ether_shost,
+                                           sizeof(struct ether_addr)); //Source MAC address of VID ADVT
+
+                                    // Add into VID Table, if addition success, update all other connected peers about the change.
+                                    int mainVIDTracker = add_entry_LL(new_node);
+
+                                    if (mainVIDTracker > 0) {
+
+                                        if (mainVIDTracker == 1) {
+                                            system("echo [added to Main VID Table] >> MSTC.txt");
+                                            hasAdditions = true;
+                                        }
+
+                                        // If peer has VID derived from me earlier and has a change now.
+                                        if (numberVIDS == (uint8_t) recvBuffer[16]) {
+                                            // Check PVID used by peer is a derived PVID from me.
+                                            delete_MACentry_cpvid_LL(&new_node->mac);
+                                        }
+                                    }
+                                }
+
+                                numberVIDS--;
+                            }
+
+                            if (sizeOfPrimaryVIDTable() > 3 && hasAdditions && mainVIDs[2] != NULL) {
+                                memset(deletedVIDs, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
+                                int numberToDelete = checkForPrimaryVIDTableChanges(mainVIDs, deletedVIDs);
+
+                                if (numberToDelete > 0) {
+                                    uint8_t *payload = NULL;
+                                    int payloadLen = 0;
+
+                                    memset(interfaceNames, '\0', sizeof(char) * MAX_INTERFACES * MAX_INTERFACES);
+                                    int numberOfInterfaces = getActiveInterfaces(interfaceNames);
+
+                                    int i = 0;
+                                    for (; i < numberOfInterfaces; i++) {
+                                        payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                                        payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs,
+                                                                              numberToDelete);
+
+                                        if (payloadLen) {
+                                            ctrlSend(interfaceNames[i], payload, payloadLen);
+                                            system("echo ADVT CHANGE MSG SENT [bc MAIN TABLE CHANGE]: >> MSTC.txt");
+                                            system("date +%H:%M:%S:%N >> MSTC.txt");
+                                        }
+                                        free(payload);
                                     }
                                 }
                             }
 
-                            numberVIDS--;
-                        }
-
-                        if (sizeOfVIDTable() > 3 && hasAdditions && mainVIDs[2] != NULL) {
-                            memset(deletedVIDs, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
-                            int numberToDelete = checkForMainVIDTableChanges(mainVIDs, deletedVIDs);
-
-                            if (numberToDelete > 0) {
+                            if (hasAdditions) {
                                 uint8_t *payload = NULL;
                                 int payloadLen = 0;
+                                payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                                // recvOnEtherPort - Payload destination will same from where ADVT message has orginated.
+                                payloadLen = build_VID_ADVT_PAYLOAD(payload, recvOnEtherPort,treeNo);
 
+                                if (payloadLen) {
+                                    ctrlSend(recvOnEtherPort, payload, payloadLen);
+
+                                    system("echo ADVT MSG SENT back [bc ADVT recieved and added to main VID table]: >> MSTC.txt");
+                                    system("date +%H:%M:%S:%N >> MSTC.txt");
+                                    char eth[20];
+                                    sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
+                                    system(eth);
+                                }
+                                free(payload);
+
+                                // ----------------------------------REST OF INTERFACES START------------------------------
                                 memset(interfaceNames, '\0', sizeof(char) * MAX_INTERFACES * MAX_INTERFACES);
                                 int numberOfInterfaces = getActiveInterfaces(interfaceNames);
+                                payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
 
                                 int i = 0;
-                                for (; i < numberOfInterfaces; i++) {
-                                    payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                                    payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs,
-                                                                          numberToDelete);
+                                for (; i < numberOfInterfaces; ++i) {
+
+                                    if ((strcmp(recvOnEtherPort, interfaceNames[i])) == 0) {
+                                        continue;
+                                    }
+
+                                    payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i],treeNo);
 
                                     if (payloadLen) {
                                         ctrlSend(interfaceNames[i], payload, payloadLen);
-                                        system("echo ADVT CHANGE MSG SENT [bc MAIN TABLE CHANGE]: >> MSTC.txt");
+
+                                        system("echo ADVT MSG SENT [looped bc ADVT recieved]: >> MSTC.txt");
+                                        system("date +%H:%M:%S:%N >> MSTC.txt");
+                                        char eth[20];
+                                        sprintf(eth, "echo %s >> MSTC.txt", interfaceNames[i]);
+                                        system(eth);
+                                    }
+                                }
+                                free(payload);
+                                // ----------------------------------REST OF INTERFACES END------------------------------
+                            }
+                        } else if (operation == VID_DEL) {
+                            // Message ordering <MSG_TYPE> <OPERATION> <NUMBER_VIDS> <VID_ADDR_LEN> <MAIN_TABLE_VID + EGRESS PORT>
+                            uint8_t numberVIDS = (uint8_t) recvBuffer[16];
+
+                            // delete all local entries, get a list and send to others who derive from this VID.
+                            memset(deletedVIDs, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
+
+                            //3-22
+                            uint8_t numberOfDeletions = numberVIDS;
+                            bool hasDeletions = false;
+                            bool needToCommDeletions = false;
+
+                            system("echo -n ' [DEL] ' >> MSTC.txt");
+
+                            int i = 0;
+                            int tracker = 18;
+                            while (i < numberOfDeletions) {
+                                //<VID_ADDR_LEN>
+                                uint8_t vid_len = recvBuffer[tracker];
+
+                                // next byte, make tracker point to VID_ADDR
+                                tracker = tracker + 1;
+
+                                deletedVIDs[i] = (char *) calloc(vid_len, sizeof(char));
+                                strncpy(deletedVIDs[i], &recvBuffer[tracker], vid_len);
+                                recvBuffer[vid_len] = '\0';
+
+                                char checkVID[100];
+                                sprintf(checkVID, "echo -n ' %s' >> MSTC.txt", deletedVIDs[i]);
+                                system(checkVID);
+
+                                hasDeletions = delete_entry_LL(deletedVIDs[i]);
+                                delete_entry_cpvid_LL(deletedVIDs[i]);
+
+                                if (hasDeletions) {
+                                    needToCommDeletions = true;
+                                }
+
+                                char checkResult[10];
+                                sprintf(checkResult, "echo -n ' %s' >> MSTC.txt", hasDeletions ? "true" : "false");
+                                system(checkResult);
+
+                                tracker += vid_len;
+                                i++;
+                            }
+
+                            uint8_t *payload;
+                            int payloadLen;
+
+                            // Only if we have deletions we will be advertising it to our connected peers.
+                            if (needToCommDeletions) {
+                                memset(interfaceNames, '\0', sizeof(char) * MAX_INTERFACES * MAX_INTERFACES);
+                                int numberOfInterfaces = getActiveInterfaces(interfaceNames);
+
+                                i = 0;
+                                for (; i < numberOfInterfaces; i++) {
+                                    payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+
+                                    payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs,
+                                                                          numberOfDeletions, treeNo);
+                                    if (payloadLen) {
+                                        ctrlSend(interfaceNames[i], payload, payloadLen);
+                                        system("echo ADVT CHANGE MSG SENT [bc DEL received]: >> MSTC.txt");
                                         system("date +%H:%M:%S:%N >> MSTC.txt");
                                     }
                                     free(payload);
                                 }
-                            }
-                        }
 
-                        if (hasAdditions) {
-                            uint8_t *payload = NULL;
-                            int payloadLen = 0;
-                            payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                            // recvOnEtherPort - Payload destination will same from where ADVT message has orginated.
-                            payloadLen = build_VID_ADVT_PAYLOAD(payload, recvOnEtherPort);
-
-                            if (payloadLen) {
-                                ctrlSend(recvOnEtherPort, payload, payloadLen);
-
-                                system("echo ADVT MSG SENT back [bc ADVT recieved and added to main VID table]: >> MSTC.txt");
-                                system("date +%H:%M:%S:%N >> MSTC.txt");
-                                char eth[20];
-                                sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
-                                system(eth);
-                            }
-                            free(payload);
-
-                            // ----------------------------------REST OF INTERFACES START------------------------------
-                            memset(interfaceNames, '\0', sizeof(char) * MAX_INTERFACES * MAX_INTERFACES);
-                            int numberOfInterfaces = getActiveInterfaces(interfaceNames);
-                            payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-
-                            int i = 0;
-                            for (; i < numberOfInterfaces; ++i) {
-
-                                if ((strcmp(recvOnEtherPort, interfaceNames[i])) == 0) {
-                                    continue;
-                                }
-
-                                payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i]);
-
-                                if (payloadLen) {
-                                    ctrlSend(interfaceNames[i], payload, payloadLen);
-
-                                    system("echo ADVT MSG SENT [looped bc ADVT recieved]: >> MSTC.txt");
-                                    system("date +%H:%M:%S:%N >> MSTC.txt");
-                                    char eth[20];
-                                    sprintf(eth, "echo %s >> MSTC.txt", interfaceNames[i]);
-                                    system(eth);
-                                }
-                            }
-                            free(payload);
-                            // ----------------------------------REST OF INTERFACES END------------------------------
-                        }
-                    } else if (operation == VID_DEL) {
-                        // Message ordering <MSG_TYPE> <OPERATION> <NUMBER_VIDS> <VID_ADDR_LEN> <MAIN_TABLE_VID + EGRESS PORT>
-                        uint8_t numberVIDS = (uint8_t) recvBuffer[16];
-
-                        // delete all local entries, get a list and send to others who derive from this VID.
-                        memset(deletedVIDs, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
-
-                        //3-22
-                        uint8_t numberOfDeletions = numberVIDS;
-                        bool hasDeletions = false;
-                        bool needToCommDeletions = false;
-
-                        system("echo -n ' [DEL] ' >> MSTC.txt");
-
-                        int i = 0;
-                        int tracker = 17;
-                        while (i < numberOfDeletions) {
-                            //<VID_ADDR_LEN>
-                            uint8_t vid_len = recvBuffer[tracker];
-
-                            // next byte, make tracker point to VID_ADDR
-                            tracker = tracker + 1;
-
-                            deletedVIDs[i] = (char *) calloc(vid_len, sizeof(char));
-                            strncpy(deletedVIDs[i], &recvBuffer[tracker], vid_len);
-                            recvBuffer[vid_len] = '\0';
-
-                            char checkVID[100];
-                            sprintf(checkVID, "echo -n ' %s' >> MSTC.txt", deletedVIDs[i]);
-                            system(checkVID);
-
-                            hasDeletions = delete_entry_LL(deletedVIDs[i]);
-                            delete_entry_cpvid_LL(deletedVIDs[i]);
-
-                            if (hasDeletions) {
-                                needToCommDeletions = true;
-                            }
-
-                            char checkResult[10];
-                            sprintf(checkResult, "echo -n ' %s' >> MSTC.txt", hasDeletions ? "true" : "false");
-                            system(checkResult);
-
-                            tracker += vid_len;
-                            i++;
-                        }
-
-                        uint8_t *payload;
-                        int payloadLen;
-
-                        // Only if we have deletions we will be advertising it to our connected peers.
-                        if (needToCommDeletions) {
-                            memset(interfaceNames, '\0', sizeof(char) * MAX_INTERFACES * MAX_INTERFACES);
-                            int numberOfInterfaces = getActiveInterfaces(interfaceNames);
-
-                            i = 0;
-                            for (; i < numberOfInterfaces; i++) {
                                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
 
-                                payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs,
-                                                                      numberOfDeletions);
-                                if (payloadLen) {
-                                    ctrlSend(interfaceNames[i], payload, payloadLen);
-                                    system("echo ADVT CHANGE MSG SENT [bc DEL received]: >> MSTC.txt");
-                                    system("date +%H:%M:%S:%N >> MSTC.txt");
+                                struct vid_addr_tuple *c1 = getInstance_vid_tbl_LL();
+                                if (c1 != NULL) {
+                                    payloadLen = build_VID_ADVT_PAYLOAD(payload, c1->eth_name,treeNo);
+                                    if (payloadLen) {
+                                        ctrlSend(c1->eth_name, payload, payloadLen);
+                                        system("echo ADVT MSG SENT: >> MSTC.txt");
+                                        system("date +%H:%M:%S:%N >> MSTC.txt");
+                                        //printf("Sending %s\n", c1->vid_addr);
+
+                                        char eth[20];
+                                        sprintf(eth, "echo %s >> MSTC.txt", c1->eth_name);
+                                        system(eth);
+                                    }
+                                    free(payload);
                                 }
-                                free(payload);
+                            }
+                        } else {
+                            printf("Unknown VID Advertisment\n");
+                            system("echo UNKNOWN ADVT RECEIVED: >> MSTC.txt");
+                        }
+
+                        print_entries_LL();
+                        print_entries_bkp_LL();
+                        print_entries_cpvid_LL();
+                        print_entries_lbcast_LL();
+                        printf("----------------------------------------------------------\n");
+                    }
+                    else{
+
+                        char *mainVIDs[3] = {NULL, NULL, NULL};
+
+                        system("echo -n `date +\"\n\nADVT MSG RECIEVED FROM TREE 2 AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
+                        char eth[30];
+                        sprintf(eth, "echo -n ' [%s]' >> MSTC.txt", recvOnEtherPort);
+                        system(eth);
+
+                        if (sizeOfSecondaryVIDTable() >= 3) {
+                            struct vid_addr_tuple *currentTable = getInstance_vid_tbl_LL2();
+                            int i = 0;
+                            for (i = 0; i < 3; i++) {
+                                mainVIDs[i] = currentTable->vid_addr;
+                                currentTable = currentTable->next;
+                            }
+                        }
+
+                        //second byte of the MTP payload is the Operation field, adding a VID (VID_ADD) = 1, removing a VID = 2
+                        uint8_t operation = (uint8_t) recvBuffer[15];
+
+                        if (operation == VID_ADD) {
+                            uint8_t numberVIDS = (uint8_t) recvBuffer[16];
+                            int tracker = 18;
+                            bool hasAdditions = false;
+                            bool mainVIDTableChange = false;
+
+                            system("echo -n ' [ADD] ' >> MSTC.txt");
+
+
+                            //running through all of the VID's recieved in the ADVT
+                            while (numberVIDS != 0) {
+                                // <VID_PATH_COST>
+                                uint8_t path_cost = (uint8_t) recvBuffer[tracker];
+                                // next byte
+                                tracker = tracker + 1;
+
+                                // <VID_ADDR_LEN>
+                                uint8_t vid_len = recvBuffer[tracker];
+                                // next byte
+                                tracker = tracker + 1;
+
+                                // <VID_ADDR>
+                                char vid_addr[vid_len];
+                                memset(vid_addr, '\0', vid_len);
+                                strncpy(vid_addr, &recvBuffer[tracker], vid_len);
+                                vid_addr[vid_len] = '\0';
+
+                                //stack smash
+                                char checkVID[100];
+                                sprintf(checkVID, "echo -n ' %s' >> MSTC.txt", vid_addr);
+                                system(checkVID);
+
+                                // next byte after length of VID
+                                tracker += vid_len;
+
+                                //returns an int to tell protocol if VID is a child of a current main or backup table VID
+                                int ret = isSecondaryChild(vid_addr);
+
+                                // if VID child check, incase part of PVID add to Child PVID table.
+                                if (ret == 1) {
+                                    // if this is the first VID in the table and is a child, we have to add into child PVID Table
+                                    if (numberVIDS == (uint8_t) recvBuffer[16]) {
+                                        // if same first ID
+                                        struct child_pvid_tuple *new_cpvid = (struct child_pvid_tuple *) calloc(1,
+                                                                                                                sizeof(struct child_pvid_tuple));
+
+                                        // Fill data.
+                                        strncpy(new_cpvid->vid_addr, vid_addr, strlen(vid_addr));
+                                        strncpy(new_cpvid->child_port, recvOnEtherPort, strlen(recvOnEtherPort));
+                                        memcpy(&new_cpvid->mac, (struct ether_addr *) &eheader->ether_shost,
+                                               sizeof(struct ether_addr));
+                                        new_cpvid->next = NULL;
+                                        new_cpvid->last_updated = time(0); // last updated time
+
+                                        //Add into child PVID table, if already there update it if any changes.
+                                        if (add_entry_cpvid_LL2(new_cpvid)) {
+                                            system("echo [Added to CPVID table] >> MSTC.txt");
+                                        } else {
+                                            //if already there deallocate node memory
+                                            free(new_cpvid);
+                                            //update CPVID time here
+                                        }
+                                    }
+                                }
+
+                                    // Add to Main VID Table, if not a child, make it PVID if there is no better path already in the table.
+                                else if (ret == -1) {
+                                    // Allocate memory and intialize(calloc).
+                                    struct vid_addr_tuple *new_node = (struct vid_addr_tuple *) calloc(1,
+                                                                                                       sizeof(struct vid_addr_tuple));
+
+                                    // Fill in data for new VID
+                                    strncpy(new_node->vid_addr, vid_addr, strlen(vid_addr)); //VID Address
+                                    strncpy(new_node->eth_name, recvOnEtherPort,
+                                            strlen(recvOnEtherPort)); //Incoming Ethernet Port Name
+                                    new_node->last_updated = time(0); // current timestamp
+                                    new_node->port_status = PVID_PORT; //Port Type
+                                    new_node->next = NULL; //Linked List Hook
+                                    new_node->isNew = true; //Is New
+                                    new_node->membership = 0;     // Intialize with '0', will find outpreference based on cost during add method.
+                                    new_node->path_cost = (uint8_t) path_cost; //Path Cost
+                                    memcpy(&new_node->mac, (struct ether_addr *) &eheader->ether_shost,
+                                           sizeof(struct ether_addr)); //Source MAC address of VID ADVT
+
+                                    // Add into VID Table, if addition success, update all other connected peers about the change.
+                                    int mainVIDTracker = add_entry_LL2(new_node);
+
+                                    if (mainVIDTracker > 0) {
+
+                                        if (mainVIDTracker == 1) {
+                                            system("echo [added to Main VID Table] >> MSTC.txt");
+                                            hasAdditions = true;
+                                        }
+
+                                        // If peer has VID derived from me earlier and has a change now.
+                                        if (numberVIDS == (uint8_t) recvBuffer[16]) {
+                                            // Check PVID used by peer is a derived PVID from me.
+                                            delete_MACentry_cpvid_LL2(&new_node->mac);
+                                        }
+                                    }
+                                }
+
+                                numberVIDS--;
                             }
 
-                            payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                            if (sizeOfPrimaryVIDTable() > 3 && hasAdditions && mainVIDs[2] != NULL) {
+                                memset(deletedVIDs, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
+                                int numberToDelete = checkForSecondaryVIDTableChanges(mainVIDs, deletedVIDs);
 
-                            struct vid_addr_tuple *c1 = getInstance_vid_tbl_LL();
-                            if (c1 != NULL) {
-                                payloadLen = build_VID_ADVT_PAYLOAD(payload, c1->eth_name);
+                                if (numberToDelete > 0) {
+                                    uint8_t *payload = NULL;
+                                    int payloadLen = 0;
+
+                                    memset(interfaceNames, '\0', sizeof(char) * MAX_INTERFACES * MAX_INTERFACES);
+                                    int numberOfInterfaces = getActiveInterfaces(interfaceNames);
+
+                                    int i = 0;
+                                    for (; i < numberOfInterfaces; i++) {
+                                        payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                                        payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs,
+                                                                              numberToDelete, treeNo);
+
+                                        if (payloadLen) {
+                                            ctrlSend(interfaceNames[i], payload, payloadLen);
+                                            system("echo ADVT CHANGE MSG SENT [bc MAIN TABLE CHANGE]: >> MSTC.txt");
+                                            system("date +%H:%M:%S:%N >> MSTC.txt");
+                                        }
+                                        free(payload);
+                                    }
+                                }
+                            }
+
+                            if (hasAdditions) {
+                                uint8_t *payload = NULL;
+                                int payloadLen = 0;
+                                payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                                // recvOnEtherPort - Payload destination will same from where ADVT message has orginated.
+                                payloadLen = build_VID_ADVT_PAYLOAD(payload, recvOnEtherPort, treeNo);
+
                                 if (payloadLen) {
-                                    ctrlSend(c1->eth_name, payload, payloadLen);
-                                    system("echo ADVT MSG SENT: >> MSTC.txt");
-                                    system("date +%H:%M:%S:%N >> MSTC.txt");
-                                    //printf("Sending %s\n", c1->vid_addr);
+                                    ctrlSend(recvOnEtherPort, payload, payloadLen);
 
+                                    system("echo ADVT MSG SENT back [bc ADVT recieved and added to main VID table]: >> MSTC.txt");
+                                    system("date +%H:%M:%S:%N >> MSTC.txt");
                                     char eth[20];
-                                    sprintf(eth, "echo %s >> MSTC.txt", c1->eth_name);
+                                    sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
                                     system(eth);
                                 }
                                 free(payload);
-                            }
-                        }
-                    } else {
-                        printf("Unknown VID Advertisment\n");
-                        system("echo UNKNOWN ADVT RECEIVED: >> MSTC.txt");
-                    }
 
-                    print_entries_LL();
-                    print_entries_bkp_LL();
-                    print_entries_cpvid_LL();
-                    print_entries_lbcast_LL();
-                    printf("----------------------------------------------------------\n");
+                                // ----------------------------------REST OF INTERFACES START------------------------------
+                                memset(interfaceNames, '\0', sizeof(char) * MAX_INTERFACES * MAX_INTERFACES);
+                                int numberOfInterfaces = getActiveInterfaces(interfaceNames);
+                                payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+
+                                int i = 0;
+                                for (; i < numberOfInterfaces; ++i) {
+
+                                    if ((strcmp(recvOnEtherPort, interfaceNames[i])) == 0) {
+                                        continue;
+                                    }
+
+                                    payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i],treeNo);
+
+                                    if (payloadLen) {
+                                        ctrlSend(interfaceNames[i], payload, payloadLen);
+
+                                        system("echo ADVT MSG SENT [looped bc ADVT recieved]: >> MSTC.txt");
+                                        system("date +%H:%M:%S:%N >> MSTC.txt");
+                                        char eth[20];
+                                        sprintf(eth, "echo %s >> MSTC.txt", interfaceNames[i]);
+                                        system(eth);
+                                    }
+                                }
+                                free(payload);
+                                // ----------------------------------REST OF INTERFACES END------------------------------
+                            }
+                        } else if (operation == VID_DEL) {
+                            // Message ordering <MSG_TYPE> <OPERATION> <NUMBER_VIDS> <VID_ADDR_LEN> <MAIN_TABLE_VID + EGRESS PORT>
+                            uint8_t numberVIDS = (uint8_t) recvBuffer[16];
+
+                            // delete all local entries, get a list and send to others who derive from this VID.
+                            memset(deletedVIDs, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
+
+                            //3-22
+                            uint8_t numberOfDeletions = numberVIDS;
+                            bool hasDeletions = false;
+                            bool needToCommDeletions = false;
+
+                            system("echo -n ' [DEL] ' >> MSTC.txt");
+
+                            int i = 0;
+                            int tracker = 17;
+                            while (i < numberOfDeletions) {
+                                //<VID_ADDR_LEN>
+                                uint8_t vid_len = recvBuffer[tracker];
+
+                                // next byte, make tracker point to VID_ADDR
+                                tracker = tracker + 1;
+
+                                deletedVIDs[i] = (char *) calloc(vid_len, sizeof(char));
+                                strncpy(deletedVIDs[i], &recvBuffer[tracker], vid_len);
+                                recvBuffer[vid_len] = '\0';
+
+                                char checkVID[100];
+                                sprintf(checkVID, "echo -n ' %s' >> MSTC.txt", deletedVIDs[i]);
+                                system(checkVID);
+
+                                hasDeletions = delete_entry_LL2(deletedVIDs[i]);
+                                delete_entry_cpvid_LL2(deletedVIDs[i]);
+
+                                if (hasDeletions) {
+                                    needToCommDeletions = true;
+                                }
+
+                                char checkResult[10];
+                                sprintf(checkResult, "echo -n ' %s' >> MSTC.txt", hasDeletions ? "true" : "false");
+                                system(checkResult);
+
+                                tracker += vid_len;
+                                i++;
+                            }
+
+                            uint8_t *payload;
+                            int payloadLen;
+
+                            // Only if we have deletions we will be advertising it to our connected peers.
+                            if (needToCommDeletions) {
+                                memset(interfaceNames, '\0', sizeof(char) * MAX_INTERFACES * MAX_INTERFACES);
+                                int numberOfInterfaces = getActiveInterfaces(interfaceNames);
+
+                                i = 0;
+                                for (; i < numberOfInterfaces; i++) {
+                                    payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+
+                                    payloadLen = build_VID_CHANGE_PAYLOAD(payload, interfaceNames[i], deletedVIDs,
+                                                                          numberOfDeletions,treeNo);
+                                    if (payloadLen) {
+                                        ctrlSend(interfaceNames[i], payload, payloadLen);
+                                        system("echo ADVT CHANGE MSG SENT [bc DEL received]: >> MSTC.txt");
+                                        system("date +%H:%M:%S:%N >> MSTC.txt");
+                                    }
+                                    free(payload);
+                                }
+
+                                payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+
+                                struct vid_addr_tuple *c1 = getInstance_vid_tbl_LL2();
+                                if (c1 != NULL) {
+                                    payloadLen = build_VID_ADVT_PAYLOAD(payload, c1->eth_name, treeNo);
+                                    if (payloadLen) {
+                                        ctrlSend(c1->eth_name, payload, payloadLen);
+                                        system("echo ADVT MSG SENT: >> MSTC.txt");
+                                        system("date +%H:%M:%S:%N >> MSTC.txt");
+                                        //printf("Sending %s\n", c1->vid_addr);
+
+                                        char eth[20];
+                                        sprintf(eth, "echo %s >> MSTC.txt", c1->eth_name);
+                                        system(eth);
+                                    }
+                                    free(payload);
+                                }
+                            }
+                        } else {
+                            printf("Unknown VID Advertisment\n");
+                            system("echo UNKNOWN ADVT RECEIVED: >> MSTC.txt");
+                        }
+
+                        print_entries_LL()2;
+                        print_entries_bkp_LL2();
+                        print_entries_cpvid_LL2();
+                        print_entries_lbcast_LL2();
+                        printf("----------------------------------------------------------\n");
+                    }
                 }
                     break;
 
@@ -900,7 +1282,7 @@ void mtp_start() {
                 }
 
                 //SEND TO PARENT MTS ON PVID PORT (if it didn't originate from that location)
-                if (!isRoot) {
+                if (!isPrimaryRoot) {
                     struct vid_addr_tuple *vid_t = getInstance_vid_tbl_LL();
                     // port should not be the same from where it received frame.
                     if (strcmp(vid_t->eth_name, recvOnEtherPort) != 0) {

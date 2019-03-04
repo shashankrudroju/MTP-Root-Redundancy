@@ -94,11 +94,12 @@ struct local_bcast_tuple
 };
 
 /* Function Prototypes for payloads */
-int  build_JOIN_MSG_PAYLOAD(uint8_t *);
+int  build_JOIN_MSG_PAYLOAD(uint8_t *,int);
 int  build_PERIODIC_MSG_PAYLOAD(uint8_t *);
-int  build_VID_ADVT_PAYLOAD(uint8_t *, char *);
-int  build_VID_CHANGE_PAYLOAD(uint8_t *, char *, char **, int);     // params - payload, interfacename, deleted VIDS, number of deleted VIDs
-bool isMain_VID_Table_Empty();
+int  build_VID_ADVT_PAYLOAD(uint8_t *, char *,int);
+int  build_VID_CHANGE_PAYLOAD(uint8_t *, char *, char **, int, int);     // params - payload, interfacename, deleted VIDS, number of deleted VIDs
+bool isPrimary_VID_Table_Empty();
+bool isSecondary_VID_Table_Empty();
 int isChild(char *);
 
 /* Function Prototypes for Primary VID Table Linked List */
@@ -121,6 +122,8 @@ bool delete_entry_cpvid_LL(char *);
 bool delete_MACentry_cpvid_LL(struct ether_addr *);
 bool update_hello_time_cpvid_LL(struct ether_addr *);
 bool update_entry_cpvid_LL(struct child_pvid_tuple *);
+bool checkForFailuresPrimaryCPVID();
+
 
 /* Function Prototypes for Secondary VID Table Linked List */
 int add_entry_LL2(struct vid_addr_tuple *);
@@ -142,6 +145,7 @@ bool delete_entry_cpvid_LL2(char *);
 bool delete_MACentry_cpvid_LL2(struct ether_addr *);
 bool update_hello_time_cpvid_LL2(struct ether_addr *);
 bool update_entry_cpvid_LL2(struct child_pvid_tuple *);
+bool checkForFailuresSecondaryCPVID();
 
 /* Function Prototypes for Local host broadcast information */
 bool add_entry_lbcast_LL(struct local_bcast_tuple *);
@@ -152,13 +156,15 @@ struct local_bcast_tuple* getInstance_lbcast_LL();
 //void update_hello_time_cpvid_LL(struct ether_addr *);
 
 /* check Failures */
-int checkForFailures(char **);
-bool checkForFailuresCPVID();
-//bool isInterfaceActive(char *);
+int checkForFailuresPrimary(char **);
+int checkForFailuresSecondary(char **);
 
 /* Peter Functional Prototypes */
-int sizeOfVIDTable();
-int checkForMainVIDTableChanges(char **, char **);
+int sizeOfPrimaryVIDTable();
+int sizeOfSecondaryVIDTable();
+
+int checkForPrimaryVIDTableChanges(char **, char **);
+int checkForSecondaryVIDTableChanges(char **, char **);
 void readPDU();
 
 #endif /* FT_PYL_H */
