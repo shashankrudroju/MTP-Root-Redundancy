@@ -256,6 +256,8 @@ int build_JOIN_MSG_PAYLOAD(uint8_t *data, int treeNo)
 
   data[payloadLen] = (uint8_t) treeNo;
 
+  payloadLen = payloadLen + 1;
+
   // Return the total payload Length.
   return payloadLen;
 }
@@ -556,7 +558,7 @@ void print_entries_LL()
   int tracker = MAX_MAIN_VID_TBL_PATHS;
 	int lenCurrentVID;
 
-	printf("\n%s\n", "#######Main VID Table#########");
+	printf("\n%s\n", "#######Primary Main VID Table#########");
 	printf("%s %30s %10s %10s %5s\n","| MT_VID |", "| Interface Name |", "| Path Cost |", "| Membership |", "| Source MAC Address |");
 
 	for (current = primary_vid_tbl_head; current != NULL && current->membership <= MAX_MAIN_VID_TBL_PATHS; current = current->next)
@@ -600,7 +602,7 @@ bool update_hello_time_LL(struct ether_addr *mac)
  *              @return
  *              void
 **/
-int checkForFailures(char **deletedVIDs)
+int checkForFailuresPrimary(char **deletedVIDs)
 {
   struct vid_addr_tuple *current = primary_vid_tbl_head;
   struct vid_addr_tuple *previous = NULL;
@@ -760,7 +762,7 @@ void print_entries_bkp_LL()
 
 	int lenCurrentVID;
 
-	printf("\n%s\n", "#######Backup VID Table#########");
+	printf("\n%s\n", "####### Primary Backup VID Table #########");
 	printf("%s %30s %10s %10s %5s\n","| MT_VID |", "| Interface Name |", "| Path Cost |", "| Membership |", "| Source MAC Address |");
 
 	for (current = primary_vid_tbl_head; current != NULL; current = current->next)
@@ -923,7 +925,7 @@ void print_entries_LL2()
     int tracker = MAX_MAIN_VID_TBL_PATHS;
     int lenCurrentVID;
 
-    printf("\n%s\n", "#######Main VID Table#########");
+    printf("\n%s\n", "####### Secondary Main VID Table#########");
     printf("%s %30s %10s %10s %5s\n","| MT_VID |", "| Interface Name |", "| Path Cost |", "| Membership |", "| Source MAC Address |");
 
     for (current = secondary_vid_tbl_head; current != NULL && current->membership <= MAX_MAIN_VID_TBL_PATHS; current = current->next)
@@ -1127,7 +1129,7 @@ void print_entries_bkp_LL2()
 
     int lenCurrentVID;
 
-    printf("\n%s\n", "#######Backup VID Table#########");
+    printf("\n%s\n", "####### Secondary Backup VID Table#########");
     printf("%s %30s %10s %10s %5s\n","| MT_VID |", "| Interface Name |", "| Path Cost |", "| Membership |", "| Source MAC Address |");
 
     for (current = secondary_vid_tbl_head; current != NULL; current = current->next)
@@ -1219,7 +1221,7 @@ void print_entries_cpvid_LL()
 
 	int lenCurrentVID;
 
-	printf("\n%s\n", "#######Child PVID Table#########");
+	printf("\n%s\n", "####### Primary Child PVID Table#########");
 	printf("%s %26s %10s\n","| Child PVID |", "| Interface Name |", "| Source MAC Address |");
 
 	for(current = primary_cpvid_tbl_head; current != NULL; current = current->next)
@@ -1498,7 +1500,7 @@ void print_entries_cpvid_LL2()
 
     int lenCurrentVID;
 
-    printf("\n%s\n", "#######Child PVID Table#########");
+    printf("\n%s\n", "#######Secondary Child PVID Table#########");
     printf("%s %26s %10s\n","| Child PVID |", "| Interface Name |", "| Source MAC Address |");
 
     for(current = secondary_cpvid_tbl_head; current != NULL; current = current->next)
