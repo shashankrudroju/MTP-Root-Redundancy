@@ -85,6 +85,7 @@ int main(int argc, char **argv) {
         isPrimaryRoot = true;
         primaryRootVID = argv[2];
         //  Check if Root VID is provided through CLI.
+        printf("This is the Primary root\n");
         if (primaryRootVID == NULL) {
             printf("Error: Provide ROOT Switch ID ./main <non MTS/root MTS> <ROOT MTS ID>\n");
             exit(1);
@@ -93,6 +94,7 @@ int main(int argc, char **argv) {
     if (atoi(argv[1]) == 2) {
         isSecondaryRoot = true;
         secondaryRootVID = argv[2];
+        printf("This is the Primary root\n");
         //  Check if Root VID is provided through CLI.
         if (secondaryRootVID == NULL) {
             printf("Error: Provide ROOT Switch ID ./main <non MTS/root MTS> <ROOT MTS ID>\n");
@@ -190,6 +192,8 @@ void mtp_start() {
             new_node->membership = 1;
 
             // Add into VID Table.
+            system("echo This is the Primary root and adding it to the primary linked list >> MSTC.txt");
+            printf("This is the Primary root and adding it to the primary linked list");
             add_entry_LL(new_node);
 
             int i = 0;
@@ -200,12 +204,13 @@ void mtp_start() {
             for (; i < numberOfInterfaces; i++) {
                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
                 // Shashank : When building the VID_ADVT payload send the appropriate VID linkedlist based on the treeNo
+                //printf("Sending out VID advt for tree 1 on %s \n",interfaceNames[i]);
+                //system("echo ADVT MSG SENT from tree 1 [looped bc root has come up]: >> MSTC.txt");
                 payloadLen = build_VID_ADVT_PAYLOAD(payload, interfaceNames[i],treeNo);
                 if (payloadLen) {
                     ctrlSend(interfaceNames[i], payload, payloadLen);
-                    system("echo ADVT MSG SENT [looped bc root has come up]: >> MSTC.txt");
+                    system("echo ADVT MSG SENT from tree 1 [looped bc root has come up]: >> MSTC.txt");
                     system("date +%H:%M:%S:%N >> MSTC.txt");
-
                     char eth[20];
                     sprintf(eth, "echo %s >> MSTC.txt", interfaceNames[i]);
                     system(eth);
@@ -213,6 +218,8 @@ void mtp_start() {
                 free(payload);
             }
         // Sending join msg for tree 2
+        printf("Sending out join msg for tree 2 ");
+        system("echo Sending out join msg for tree 2 >> MSTC.txt");
         uint8_t *payload1 = NULL;
         int payloadLen1 = 0;
         treeNo = 2;
@@ -224,6 +231,7 @@ void mtp_start() {
             int i = 0;
             for (; i < numberOfInterfaces; ++i) {
                 ctrlSend(interfaceNames[i], payload1, payloadLen1);
+                printf("Sending out join msg for tree 2 on interface %s\n",interfaceNames[i]);
                 system("echo -n `date +\"JOIN MSG SENT AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
                 char eth[20];
                 sprintf(eth, "echo ' [%s]' >> MSTC.txt", interfaceNames[i]);
@@ -268,13 +276,13 @@ void mtp_start() {
                 }
                 free(payload);
             }
-        // Sending join msg for tree 2
+        // Sending join msg for tree 1
         uint8_t *payload1 = NULL;
         int payloadLen1 = 0;
         treeNo = 1;
         payload1 = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
         payloadLen1 = build_JOIN_MSG_PAYLOAD(payload1,treeNo);
-        system("echo hit init join for 2nd tree >> MSTC.txt");
+        system("echo hit init join for 1st tree >> MSTC.txt");
 
         if (payloadLen1) {
             int i = 0;
@@ -296,7 +304,7 @@ void mtp_start() {
         payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
         int treeNo = 1;
         payloadLen = build_JOIN_MSG_PAYLOAD(payload,treeNo);
-        system("echo hit init join >> MSTC.txt");
+        system("echo hit init join for tree 1 >> MSTC.txt");
 
         if (payloadLen) {
             int i = 0;
@@ -315,8 +323,8 @@ void mtp_start() {
 
         payload1 = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
         treeNo = 2;
-        payloadLen1 = build_JOIN_MSG_PAYLOAD(payload,treeNo);
-        system("echo hit init join >> MSTC.txt");
+        payloadLen1 = build_JOIN_MSG_PAYLOAD(payload1,treeNo);
+        system("echo hit init join for tree 2 >> MSTC.txt");
 
         if (payloadLen1) {
             int i = 0;
@@ -508,6 +516,8 @@ void mtp_start() {
                 delete_entry_lbcast_LL(recvOnEtherPort);
             }
             int treeNo = 0;
+
+            system("echo ");
             //switch statement for 14th index of recvBuffer (frame),
             switch (recvBuffer[14]) {
                 //printf("\n MTP received VALID ctrl message");
@@ -516,6 +526,10 @@ void mtp_start() {
                 */
                 case MTP_TYPE_JOIN_MSG: {
                     treeNo = (int) recvBuffer[15];
+                    system("echo Recieved tree no is >> MSTC.txt");
+                    char treeprint[30];
+                    sprintf(treeprint, "echo %d >> MSTC.txt", treeNo);
+                    system(treeprint);
                     if(treeNo == 1) {
                         system("echo JOIN MSG RECIEVED from tree 1: >> MSTC.txt");
                         system("date +%H:%M:%S:%N >> MSTC.txt");
@@ -590,6 +604,10 @@ void mtp_start() {
 
                     // Record MAC ADDRESS, if not already present.
                     treeNo = (int) recvBuffer[15];
+                    system("echo Recieved tree no is >> MSTC.txt");
+                    char treeprint[30];
+                    sprintf(treeprint, "echo %d >> MSTC.txt", treeNo);
+                    system(treeprint);
                     struct ether_addr src_mac;
                     bool retMainVID, retCPVID;
 
@@ -628,9 +646,14 @@ void mtp_start() {
                     */
                 case MTP_TYPE_VID_ADVT: {
                     treeNo = (int) recvBuffer[17];
+                    system("echo Recieved tree no is >> MSTC.txt");
+                    char treeprint[30];
+                    sprintf(treeprint, "echo %d >> MSTC.txt", treeNo);
+                    system(treeprint);
+                    printf("Advt msg recieved from %d \n",treeNo);
+                    system("echo -n `date +\"\n\nADVT MSG RECIEVED AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
                     if (treeNo == 1) {
                         char *mainVIDs[3] = {NULL, NULL, NULL};
-
                         system("echo -n `date +\"\n\nADVT MSG RECIEVED AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
                         char eth[30];
                         sprintf(eth, "echo -n ' [%s]' >> MSTC.txt", recvOnEtherPort);
@@ -647,6 +670,7 @@ void mtp_start() {
 
                         //second byte of the MTP payload is the Operation field, adding a VID (VID_ADD) = 1, removing a VID = 2
                         uint8_t operation = (uint8_t) recvBuffer[15];
+                        printf("Operation is %u",operation);
 
                         if (operation == VID_ADD) {
                             uint8_t numberVIDS = (uint8_t) recvBuffer[16];
@@ -913,6 +937,7 @@ void mtp_start() {
                             }
                         } else {
                             printf("Unknown VID Advertisment\n");
+                            printf("Operation is %u",operation);
                             system("echo UNKNOWN ADVT RECEIVED: >> MSTC.txt");
                         }
 
@@ -942,7 +967,7 @@ void mtp_start() {
 
                         //second byte of the MTP payload is the Operation field, adding a VID (VID_ADD) = 1, removing a VID = 2
                         uint8_t operation = (uint8_t) recvBuffer[15];
-
+                        printf(" Operation is %u \n", operation);
                         if (operation == VID_ADD) {
                             uint8_t numberVIDS = (uint8_t) recvBuffer[16];
                             int tracker = 18;
@@ -950,7 +975,6 @@ void mtp_start() {
                             bool mainVIDTableChange = false;
 
                             system("echo -n ' [ADD] ' >> MSTC.txt");
-
 
                             //running through all of the VID's recieved in the ADVT
                             while (numberVIDS != 0) {
@@ -1207,8 +1231,9 @@ void mtp_start() {
                                 }
                             }
                         } else {
+
                             printf("Unknown VID Advertisment\n");
-                            system("echo UNKNOWN ADVT RECEIVED: >> MSTC.txt");
+                            system("echo UNKNOWN ADVT RECEIVED from tree 2 %u: >> MSTC.txt");
                         }
 
                         print_entries_LL2();
