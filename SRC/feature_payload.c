@@ -244,7 +244,7 @@ int  build_VID_ADVT_PAYLOAD(uint8_t *data, char *interface, int treeNo)
  *
  */
 // Message ordering <MSG_TYPE>
-int build_JOIN_MSG_PAYLOAD(uint8_t *data, int treeNo)
+int build_JOIN_MSG_PAYLOAD(uint8_t *data)
 {
   int payloadLen = 0;
 
@@ -252,10 +252,6 @@ int build_JOIN_MSG_PAYLOAD(uint8_t *data, int treeNo)
   data[payloadLen] = (uint8_t) MTP_TYPE_JOIN_MSG;
 
   // next byte
-  payloadLen = payloadLen + 1;
-
-  data[payloadLen] = (uint8_t) treeNo;
-
   payloadLen = payloadLen + 1;
 
   // Return the total payload Length.
@@ -1439,9 +1435,9 @@ bool add_entry_cpvid_LL2(struct child_pvid_tuple *node)
 
     if(secondary_cpvid_tbl_head != NULL)
     {
-        bool updatedNode = update_entry_cpvid_LL(node);
+        bool updatedNode = update_entry_cpvid_LL2(node);
 
-        if(!updatedNode && !find_entry_cpvid_LL(node))
+        if(!updatedNode && !find_entry_cpvid_LL2(node))
         {
             node->next = secondary_cpvid_tbl_head;
             secondary_cpvid_tbl_head = node;
