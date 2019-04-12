@@ -271,7 +271,7 @@ int build_JOIN_MSG_PAYLOAD(uint8_t *data)
  */
 
 // Message ordering <MSG_TYPE>
-int  build_PERIODIC_MSG_PAYLOAD(uint8_t *data)
+int  build_PERIODIC_MSG_PAYLOAD(uint8_t *data, int treeNo)
 {
   int payloadLen = 0;
 
@@ -281,7 +281,11 @@ int  build_PERIODIC_MSG_PAYLOAD(uint8_t *data)
   // next byte
   payloadLen = payloadLen + 1;
 
-  // Return the total payload Length.
+  data[payloadLen] = (uint8_t) treeNo;
+
+  payloadLen = payloadLen + 1;
+
+    // Return the total payload Length.
   return payloadLen;
 }
 

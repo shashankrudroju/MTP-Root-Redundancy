@@ -56,7 +56,7 @@ bool isSecondaryRoot = false;
 
 bool treeStable = false;
 
-int treetoUse = 1;
+int  treetoUse = 1;
 // Shashank : Need a root priority variable that will set this priority to 1 as long as this root is up
 // Shashank : Once this root is down, we change its priority to 0 and make the secondary root's priority to 1
 
@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
             exit(1);
         }
     }
-    printf("Check for type of node done\n");
+    //printf("Check for type of node done\n");
     /*
      *Intially we mark all ports as host ports, if we get a MTP CTRL frame from any port we remove it. The local host broadcast table is populated as a result of the
      *ports all being host ports
@@ -148,6 +148,8 @@ void mtp_start() {
     // time_t, timers for checking hello time.
     time_t time_advt_beg;
     time_t time_advt_fin;
+    time_t time_advt_beg2;
+    time_t time_advt_fin2;
 
 
     // clear the memory
@@ -174,6 +176,7 @@ void mtp_start() {
 
     //starts the clocks for periodic hello messages and MSTC timing
     time(&time_advt_beg);
+    time(&time_advt_beg2);
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 
@@ -330,14 +333,15 @@ void mtp_start() {
 
     while (true) {
         time(&time_advt_fin);
-        if(treetoUse ==1) {
-        if(!isPrimary_VID_Table_Empty){
-            treeStable = true;
-        }
-        if(treeStable){
+        if(treetoUse == 1) {
+            if(!treeStable && !isPrimary_VID_Table_Empty()){
+                system("echo 'Primary root is up\n'  >> MSTC.txt");
+                treeStable = true;
+            }
+            if(treeStable){
                 if (isPrimary_VID_Table_Empty()) {
-                    printf("Primary root failure, Switching to secondary root");
-                    system("echo 'Primary root failure, switching to Secondary root'  >> MSTC.txt");
+                    //printf("Primary root failure, Switching to secondary root");
+                    system("echo -n `date +\"PRIMARY ROOT IS DOWN, SWITCHING TO SECONDARY ROOT AT [%H:%M:%S:%6N]\"` >> MSTC.txt");
                     treetoUse = 2;
                 }
             }
@@ -487,9 +491,40 @@ void mtp_start() {
             int numberOfInterfaces = getActiveInterfaces(interfaceNames);
             uint8_t *payload = NULL;
             int payloadLen = 0;
-            int treeNo;
+            int treeNo = 3;
+            bool sendJoin = false;
 
-            if (isPrimary_VID_Table_Empty() || isSecondary_VID_Table_Empty()) {
+            if (!isPrimary_VID_Table_Empty() && !isSecondary_VID_Table_Empty()) {
+                treeNo = 0;
+            } else {
+                if (isPrimary_VID_Table_Empty()) {
+                    sendJoin = true;
+            } else {
+                if (!isPrimaryRoot || (isPrimaryRoot && getInstance_cpvid_LL() != NULL)) {
+                    treeNo = 1;
+                    }
+                }
+                if (isSecondary_VID_Table_Empty()) {
+                    sendJoin = true;
+
+                } else {
+                    if (!isSecondaryRoot || (isSecondaryRoot && getInstance_cpvid_LL2() != NULL)) {
+                        treeNo = 2;
+                    }
+                }
+            }
+            if(treeNo != 3){
+                payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                payloadLen = build_PERIODIC_MSG_PAYLOAD(payload,treeNo);
+                if (payloadLen) {
+                    int i = 0;
+                    for (; i < numberOfInterfaces; ++i) {
+                        ctrlSend(interfaceNames[i], payload, payloadLen);
+                    }
+                }
+                free(payload);
+            }
+            if(sendJoin){
                 payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
                 payloadLen = build_JOIN_MSG_PAYLOAD(payload);
                 system("echo hit empty join >> MSTC.txt");
@@ -506,21 +541,8 @@ void mtp_start() {
                 }
                 free(payload);
             }
-            else {
-                if ((!isPrimaryRoot || (isPrimaryRoot && getInstance_cpvid_LL() != NULL)) && (!isSecondaryRoot || (isSecondaryRoot && getInstance_cpvid_LL2() != NULL))) {
-                    payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                    payloadLen = build_PERIODIC_MSG_PAYLOAD(payload);
-                    if (payloadLen) {
-                        int i = 0;
-                        for (; i < numberOfInterfaces; ++i) {
-                            ctrlSend(interfaceNames[i], payload, payloadLen);
-                        }
-                    }
-                    free(payload);
-                }
-            }
-
             time(&time_advt_beg);
+            time(&time_advt_beg2);
 
         }
 
@@ -559,7 +581,7 @@ void mtp_start() {
                 // This is a MTP frame so, incase this port is in Local host broadcast table remove it.
                 delete_entry_lbcast_LL(recvOnEtherPort);
             }
-            int treeNo = 0;
+            int treeNo;
 
             //switch statement for 14th index of recvBuffer (frame),
             switch (recvBuffer[14]) {
@@ -586,7 +608,7 @@ void mtp_start() {
                             payloadLen = build_VID_ADVT_PAYLOAD(payload, recvOnEtherPort,treeNo);
                             if (payloadLen) {
                                 ctrlSend(recvOnEtherPort, payload, payloadLen);
-                                system("echo ADVT MSG SENT [bc JOIN recieved]: >> MSTC.txt");
+                                system("echo -n ADVT MSG SENT [bc JOIN recieved]: >> MSTC.txt");
                                 system("date +%H:%M:%S:%N >> MSTC.txt");
                                 char eth[20];
                                 sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
@@ -625,76 +647,69 @@ void mtp_start() {
                      *MT_HELLO – this message is a keep-alive indicator and issued periodically on all MTP_ports by a switch running the MTP. A root switch that sends *this message will carry the MT_VID of the root switch. A non-root switch that sends this message will carry all of its MT_VIDs.
                     */
                 case MTP_TYPE_PERODIC_MSG: {
-                    /*
-                    system("echo HELLO MSG RECIEVED: >> MSTC.txt");
-                    system("date +%H:%M:%S:%N >> MSTC.txt");
-                    char eth[20];
-                    sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
-                    system(eth);
-                    */
 
-                    // Record MAC ADDRESS, if not already present.
+                    treeNo = (int) recvBuffer[15];
 
-                    //system("echo Periodic Hello Recieved >> MSTC.txt");
-                    struct ether_addr src_mac;
-                    bool retMainVID, retCPVID;
+                    if (treeNo == 0 || treeNo == 1) {
+                        struct ether_addr src_mac;
+                        bool retMainVID, retCPVID;
+                        memcpy(&src_mac, (struct ether_addr *) &eheader->ether_shost, sizeof(struct ether_addr));
+                        retMainVID = update_hello_time_LL(&src_mac);
+                        retCPVID = update_hello_time_cpvid_LL(&src_mac);
 
-                    memcpy(&src_mac, (struct ether_addr *) &eheader->ether_shost, sizeof(struct ether_addr));
-                    retMainVID = update_hello_time_LL(&src_mac);
-                    retCPVID = update_hello_time_cpvid_LL(&src_mac);
+                        if (retMainVID || retCPVID) {
+                            //Hello Keep-alive recieved, empty conditional is inefficent...need to fix this at some point
+                        }
 
-                    if (retMainVID || retCPVID) {
-                        //Hello Keep-alive recieved, empty conditional is inefficent...need to fix this at some point
-                    }
+                            //10/18/17 - delay in convergence occuring because this is the first occurance of a join happening [fixed]
+                        else {
+                            if (!isPrimaryRoot) {
+                                uint8_t *payload = NULL;
+                                int payloadLen = 0;
+                                payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                                payloadLen = build_JOIN_MSG_PAYLOAD(payload);
+                                if (payloadLen) {
+                                    ctrlSend(recvOnEtherPort, payload, payloadLen);
+                                    system("echo JOIN MSG SENT [bc hello recieved]: >> MSTC.txt");
+                                    system("date +%H:%M:%S:%N >> MSTC.txt");
 
-                        //10/18/17 - delay in convergence occuring because this is the first occurance of a join happening [fixed]
-                    else {
-                        if (!isPrimaryRoot) {
-                            uint8_t *payload = NULL;
-                            int payloadLen = 0;
-                            payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                            payloadLen = build_JOIN_MSG_PAYLOAD(payload);
-                            if (payloadLen) {
-                                ctrlSend(recvOnEtherPort, payload, payloadLen);
-                                system("echo JOIN MSG SENT [bc hello recieved]: >> MSTC.txt");
-                                system("date +%H:%M:%S:%N >> MSTC.txt");
-
-                                char eth[20];
-                                sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
-                                system(eth);
+                                    char eth[20];
+                                    sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
+                                    system(eth);
+                                }
+                                free(payload);
                             }
-                            free(payload);
                         }
                     }
+                    if(treeNo == 0 || treeNo == 2) {
+                        struct ether_addr src_mac2;
+                        bool retMainVID2, retCPVID2;
+                        memcpy(&src_mac2, (struct ether_addr *) &eheader->ether_shost, sizeof(struct ether_addr));
+                        retMainVID2 = update_hello_time_LL2(&src_mac2);
+                        retCPVID2 = update_hello_time_cpvid_LL2(&src_mac2);
 
-                    struct ether_addr src_mac2;
-                    bool retMainVID2, retCPVID2;
+                        if (retMainVID2 || retCPVID2) {
+                            //Hello Keep-alive recieved, empty conditional is inefficent...need to fix this at some point
+                        }
 
-                    memcpy(&src_mac2, (struct ether_addr *) &eheader->ether_shost, sizeof(struct ether_addr));
-                    retMainVID2 = update_hello_time_LL2(&src_mac2);
-                    retCPVID2 = update_hello_time_cpvid_LL2(&src_mac2);
+                            //10/18/17 - delay in convergence occuring because this is the first occurance of a join happening [fixed]
+                        else {
+                            if (!isSecondaryRoot) {
+                                uint8_t *payload = NULL;
+                                int payloadLen = 0;
+                                payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
+                                payloadLen = build_JOIN_MSG_PAYLOAD(payload);
+                                if (payloadLen) {
+                                    ctrlSend(recvOnEtherPort, payload, payloadLen);
+                                    system("echo JOIN MSG SENT [bc hello recieved]: >> MSTC.txt");
+                                    system("date +%H:%M:%S:%N >> MSTC.txt");
 
-                    if (retMainVID2 || retCPVID2) {
-                        //Hello Keep-alive recieved, empty conditional is inefficent...need to fix this at some point
-                    }
-
-                        //10/18/17 - delay in convergence occuring because this is the first occurance of a join happening [fixed]
-                    else {
-                        if (!isSecondaryRoot) {
-                            uint8_t *payload = NULL;
-                            int payloadLen = 0;
-                            payload = (uint8_t *) calloc(1, MAX_BUFFER_SIZE);
-                            payloadLen = build_JOIN_MSG_PAYLOAD(payload);
-                            if (payloadLen) {
-                                ctrlSend(recvOnEtherPort, payload, payloadLen);
-                                system("echo JOIN MSG SENT [bc hello recieved]: >> MSTC.txt");
-                                system("date +%H:%M:%S:%N >> MSTC.txt");
-
-                                char eth[20];
-                                sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
-                                system(eth);
+                                    char eth[20];
+                                    sprintf(eth, "echo %s >> MSTC.txt", recvOnEtherPort);
+                                    system(eth);
+                                }
+                                free(payload);
                             }
-                            free(payload);
                         }
                     }
                 }
@@ -705,15 +720,15 @@ void mtp_start() {
                     */
                 case MTP_TYPE_VID_ADVT: {
                     treeNo = (int) recvBuffer[17];
-                    system("echo \nRecieved tree no is >> MSTC.txt");
-                    char treeprint[30];
-                    sprintf(treeprint, "echo %d >> MSTC.txt", treeNo);
-                    system(treeprint);
-                    printf("Advt msg recieved from %d \n",treeNo);
+                    //system("echo Recieved tree no is >> MSTC.txt");
+                    //char treeprint[30];
+                    //sprintf(treeprint, "echo %d >> MSTC.txt", treeNo);
+                    //system(treeprint);
+                    //printf("Advt msg recieved from %d \n",treeNo);
                     //system("echo -n `date +\"\n\nADVT MSG RECIEVED AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
                     if (treeNo == 1) {
                         char *mainVIDs[3] = {NULL, NULL, NULL};
-                        system("echo -n `date +\"\n\nADVT MSG RECIEVED AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
+                        system("echo -n `date +\"\n\nADVT MSG RECIEVED FROM TREE 1 AT [%H:%M:%S:%N] ON\"` >> MSTC.txt");
                         char eth[30];
                         sprintf(eth, "echo -n ' [%s]' >> MSTC.txt", recvOnEtherPort);
                         system(eth);
@@ -936,7 +951,7 @@ void mtp_start() {
                                 recvBuffer[vid_len] = '\0';
 
                                 char checkVID[100];
-                                sprintf(checkVID, "echo -n ' %s' >> MSTC.txt", deletedVIDs[i]);
+                                sprintf(checkVID, "echo -n ' , %s' >> MSTC.txt", deletedVIDs[i]);
                                 system(checkVID);
 
                                 hasDeletions = delete_entry_LL(deletedVIDs[i]);
@@ -947,7 +962,7 @@ void mtp_start() {
                                 }
 
                                 char checkResult[10];
-                                sprintf(checkResult, "echo -n ' %s' >> MSTC.txt", hasDeletions ? "true" : "false");
+                                sprintf(checkResult, "echo -n ' Status : %s' >> MSTC.txt", hasDeletions ? "true" : "false");
                                 system(checkResult);
 
                                 tracker += vid_len;
@@ -1218,7 +1233,7 @@ void mtp_start() {
                             system("echo -n ' [DEL] ' >> MSTC.txt");
 
                             int i = 0;
-                            int tracker = 17;
+                            int tracker = 18;
                             while (i < numberOfDeletions) {
                                 //<VID_ADDR_LEN>
                                 uint8_t vid_len = recvBuffer[tracker];

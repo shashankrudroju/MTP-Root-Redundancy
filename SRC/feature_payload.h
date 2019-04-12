@@ -95,7 +95,7 @@ struct local_bcast_tuple
 
 /* Function Prototypes for payloads */
 int  build_JOIN_MSG_PAYLOAD(uint8_t *);
-int  build_PERIODIC_MSG_PAYLOAD(uint8_t *);
+int  build_PERIODIC_MSG_PAYLOAD(uint8_t *, int);
 int  build_VID_ADVT_PAYLOAD(uint8_t *, char *,int);
 int  build_VID_CHANGE_PAYLOAD(uint8_t *, char *, char **, int, int);     // params - payload, interfacename, deleted VIDS, number of deleted VIDs
 bool isPrimary_VID_Table_Empty();
