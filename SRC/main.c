@@ -31,6 +31,7 @@
 
 //MTP Ethertype
 #define ETH_MTP_CTRL    0x8850
+#define ETH_UNI_DATA    0xff00
 
 #define MAX_VID_LIST    20
 
@@ -164,7 +165,7 @@ void mtp_start() {
     }
 
     // Create Socket, ETH_ is used because we are listening packets of all kinds.
-    if ((sockData = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP))) < 0) {
+    if ((sockData = socket(AF_PACKET, SOCK_RAW, htons(ETH_UNI_DATA))) < 0) {
         perror("Error: MTP socket()");
         exit(1);
     }
