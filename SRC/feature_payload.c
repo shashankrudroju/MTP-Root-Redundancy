@@ -1872,7 +1872,7 @@ int build_VID_ADVT_PAYLOAD(uint8_t *data, char *interface, int treeNo)
     int numAdvts = 0;
     int egressPort = 0;
     int i = 0;
-
+    struct vid_addr_tuple *current = NULL;
     if(treeNo == 1){
         current = primary_vid_tbl_head;
     }

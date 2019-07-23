@@ -45,8 +45,8 @@ int  treetoUse = 1;
 /* FUNCTION PROTOTYPES */
 int getActiveInterfaces(char **);								// Function used to determine active interfaces on the node
 void runMTP();																	// Function used to implement the Meshed Tree Protocol finite State machine
-void floodFrame(uint8_t *, int, char *);			  // Function used to flood broadcast frames via the Primary VID Tree
-void switchUnicastFrame(uint8_t*, int, char *); // Function used to switch unicast frames via the Host Address Table
+void floodFrame(uint8_t *, int, char *, int);			  // Function used to flood broadcast frames via the Primary VID Tree
+void switchUnicastFrame(uint8_t*, int, char *, int); // Function used to switch unicast frames via the Host Address Table
 void markMulticastFrame(char *);							  // Function used to identify and drop multicast frames
 void sig_handler(int);                          // Function used to gracefully close the software (not used?)
 
@@ -329,7 +329,7 @@ void runMTP()
             struct vid_addr_tuple* parentMTPNode2 =  getInstance_vid_tbl_LL2();
             if (parentMTPNode2 != NULL)
             {
-                sendVIDUpdatePDU_ADD(parentMTPNode->eth_name, treeNo); // Announcing to my parent that I have a VID from him
+                sendVIDUpdatePDU_ADD(parentMTPNode2->eth_name, treeNo); // Announcing to my parent that I have a VID from him
             }
             printTablesSecondary(); // Print the updated tables to the console to view the changes
         }
@@ -478,16 +478,16 @@ void runMTP()
 
                         memcpy(&src_mac2, (struct ether_addr *) &eheader->ether_shost, sizeof(struct ether_addr));
 
-                        retMainVID = update_hello_time_LL2(&src_mac);
-                        retCPVID = update_hello_time_cpvid_LL2(&src_mac);
-                        currentVIDTableSize = sizeOfSecondaryVIDTable();
+                        retMainVID2 = update_hello_time_LL2(&src_mac2);
+                        retCPVID2 = update_hello_time_cpvid_LL2(&src_mac2);
+                        currentVIDTableSize2 = sizeOfSecondaryVIDTable();
                         update_hello_time_HAT(recvOnEtherPort);
 
                         char *helloMsg2 = "PDU [Hello] Received";
                         MTPlog(helloMsg2, recvOnEtherPort, MSG_RECV, MTP_TYPE_PERODIC_MSG);
 
                         //if(retMainVID == false && retCPVID == false && !isRoot)
-                        if (retMainVID2 == false && retCPVID2 == false && currentVIDTableSize < MAX_VID_ENTRIES &&
+                        if (retMainVID2 == false && retCPVID2 == false && currentVIDTableSize2 < MAX_VID_ENTRIES &&
                             !isSecondaryRoot) //BIG ADD
                         {
                             floodNotificationPDU(MTP_TYPE_JOIN_MSG,2);
@@ -1085,7 +1085,7 @@ void runMTP()
                 /* UNICAST FRAME - switch frame on apporpriate interface */
             else
             {
-                switchUnicastFrame(clientBuffer, recv_len, recvOnEtherPort);
+                switchUnicastFrame(clientBuffer, recv_len, recvOnEtherPort, treetoUse);
             }
         } // End receive of data message
     } // End of MTP Finite State Machine (infinite while loop)
@@ -1162,7 +1162,7 @@ void markMulticastFrame(char *recvOnEtherPort)
     2. Updating the HAT with the source of the traffic (sender MAC address)
 		recvBuffer usually has a *, removed for testing
 */
-void switchUnicastFrame(uint8_t *recvBuffer, int recv_len, char *recvOnEtherPort)
+void switchUnicastFrame(uint8_t *recvBuffer, int recv_len, char *recvOnEtherPort, int treetoUse)
 {
     struct ether_header *eheader = NULL;
     eheader = (struct ether_header*) recvBuffer;
@@ -1186,7 +1186,7 @@ void switchUnicastFrame(uint8_t *recvBuffer, int recv_len, char *recvOnEtherPort
     else
     {
         //printf("Received unicast frame (Desination not in HAT, broadcasting)\n");
-        floodFrame(recvBuffer, recv_len, recvOnEtherPort);
+        floodFrame(recvBuffer, recv_len, recvOnEtherPort, treetoUse);
     }
 
     /* Checking whether the sender host details are present in the HAT, if not, it is added and advertised to the other MTS' */

@@ -258,7 +258,7 @@ void checkForSecondaryLinkFailure();
 
 void floodNotificationPDU(int, int);
 void sendVIDUpdatePDU_ADD(char*, int);
-void sendVIDUpdatePDU_DEL(char**, int);
+void sendVIDUpdatePDU_DEL(char**, int, int);
 bool checkInterfaceIsActive(char*);
 
 /* In progress prototypes */
