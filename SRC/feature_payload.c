@@ -3012,7 +3012,7 @@ void printPrimaryVIDTable()
     int tracker = MAX_MAIN_VID_TBL_PATHS;
     int lenCurrentVID;
 
-    printf("%s\n", "####### Main VID Table #########");
+    printf("%s\n", "####### Primary VID Table #########");
     printf("%s %30s %10s %10s %5s\n","| MT_VID |", "| Interface Name |", "| Path Cost |", "| Membership |", "| Source MAC Address |");
 
     for (current = primary_vid_tbl_head; current != NULL && current->membership <= MAX_MAIN_VID_TBL_PATHS; current = current->next)
@@ -3028,7 +3028,7 @@ void printSecondaryVIDTable()
     int tracker = MAX_MAIN_VID_TBL_PATHS;
     int lenCurrentVID;
 
-    printf("%s\n", "####### Main VID Table #########");
+    printf("%s\n", "####### Secondary VID Table #########");
     printf("%s %30s %10s %10s %5s\n","| MT_VID |", "| Interface Name |", "| Path Cost |", "| Membership |", "| Source MAC Address |");
 
     for (current = secondary_vid_tbl_head; current != NULL && current->membership <= MAX_MAIN_VID_TBL_PATHS; current = current->next)
@@ -3052,7 +3052,7 @@ void printPrimaryBackupVIDTable()
     struct vid_addr_tuple *current;
     int lenCurrentVID;
 
-    printf("\n%s\n", "####### Backup VID Table #########");
+    printf("\n%s\n", "####### Primary Backup VID Table #########");
     printf("%s %30s %10s %10s %5s\n","| MT_VID |", "| Interface Name |", "| Path Cost |", "| Membership |", "| Source MAC Address |");
 
     for (current = primary_vid_tbl_head; current != NULL; current = current->next)
@@ -3070,7 +3070,7 @@ void printSecondaryBackupVIDTable()
     struct vid_addr_tuple *current;
     int lenCurrentVID;
 
-    printf("\n%s\n", "####### Backup VID Table #########");
+    printf("\n%s\n", "####### Secondary Backup VID Table #########");
     printf("%s %30s %10s %10s %5s\n","| MT_VID |", "| Interface Name |", "| Path Cost |", "| Membership |", "| Source MAC Address |");
 
     for (current = secondary_vid_tbl_head; current != NULL; current = current->next)
@@ -3097,7 +3097,7 @@ void printPrimaryChildPVIDTable()
     struct child_pvid_tuple *current;
     int lenCurrentVID;
 
-    printf("\n%s\n", "####### Child PVID Table #########");
+    printf("\n%s\n", "####### Primary Child PVID Table #########");
     printf("%s %26s %10s\n","| Child PVID |", "| Interface Name |", "| Source MAC Address |");
 
     for(current = primary_cpvid_tbl_head; current != NULL; current = current->next)
@@ -3112,7 +3112,7 @@ void printSecondaryChildPVIDTable()
     struct child_pvid_tuple *current;
     int lenCurrentVID;
 
-    printf("\n%s\n", "####### Child PVID Table #########");
+    printf("\n%s\n", "####### Secondary Child PVID Table #########");
     printf("%s %26s %10s\n","| Child PVID |", "| Interface Name |", "| Source MAC Address |");
 
     for(current = secondary_cpvid_tbl_head; current != NULL; current = current->next)

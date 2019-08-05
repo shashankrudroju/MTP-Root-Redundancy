@@ -272,7 +272,6 @@ void runMTP()
                 }
             }
         }
-
         checkForPrimaryLinkFailure(); // Check for any local link failures
 
         /* Mark the VIDs or HAT entries that have been affected by a failure */
@@ -306,18 +305,16 @@ void runMTP()
         {
             printTablesPrimary(); // Print the updated tables to the console to view the changes
         }
-
         checkForSecondaryLinkFailure();
-
         memset(deletedVIDs2, '\0', sizeof(char) * MAX_VID_LIST * MAX_VID_LIST);
-        int numberOfDeletions2 = checkForPrimaryFailuresVID(deletedVIDs);
-        bool hasCPVIDDeletions2 = checkForPrimaryFailuresCPVID();
+        int numberOfDeletions2 = checkForSecondaryFailuresVID(deletedVIDs2);
+        bool hasCPVIDDeletions2 = checkForSecondaryFailuresCPVID();
 
         /* In the event of a VID deletion, alert all neighboring MTS' */
         if(numberOfDeletions2 > 0)
         {
             int treeNo = 2;
-            sendVIDUpdatePDU_DEL(deletedVIDs, numberOfDeletions, treeNo);
+            sendVIDUpdatePDU_DEL(deletedVIDs2, numberOfDeletions2, treeNo);
 
             /* Check CPVID Table - I'm not sure if we really need this */
             int i = 0;
@@ -334,7 +331,7 @@ void runMTP()
             printTablesSecondary(); // Print the updated tables to the console to view the changes
         }
 
-        else if(hasCPVIDDeletions || hasHATDeletions)
+        else if(hasCPVIDDeletions2 || hasHATDeletions)
         {
             printTablesSecondary(); // Print the updated tables to the console to view the changes
         }
