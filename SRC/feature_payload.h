@@ -262,7 +262,7 @@ void sendVIDUpdatePDU_DEL(char**, int, int);
 bool checkInterfaceIsActive(char*);
 
 /* In progress prototypes */
-void MTPlog(char*, char*, int, int);
+void MTPlog(char*, char*, int, int, int);
 int getTimeStamp(char*, uint, struct timespec*);
 void sendHostUpdatePDU(struct Host_Address_tuple *, char*);
 bool isControlPort(char*); // TODAY CHANGES

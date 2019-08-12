@@ -421,7 +421,8 @@ void runMTP()
                 case MTP_TYPE_JOIN_MSG:
                 {
                     char* ReceivedJoinMsg = "PDU [Join] Received";
-                    MTPlog(ReceivedJoinMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_JOIN_MSG);
+                    MTPlog(ReceivedJoinMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_JOIN_MSG, 1);
+                    MTPlog(ReceivedJoinMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_JOIN_MSG, 2);
 
                     //if the VID table is empty, we can't be sending ADVT's out, we don't have anything to ADVT!
                     if(!isPrimary_VID_Table_Empty())
@@ -459,7 +460,7 @@ void runMTP()
                         update_hello_time_HAT(recvOnEtherPort);
 
                         char *helloMsg = "PDU [Hello] Received";
-                        MTPlog(helloMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_PERODIC_MSG);
+                        MTPlog(helloMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_PERODIC_MSG, 1);
 
                         //if(retMainVID == false && retCPVID == false && !isRoot)
                         if (retMainVID == false && retCPVID == false && currentVIDTableSize < MAX_VID_ENTRIES &&
@@ -481,7 +482,7 @@ void runMTP()
                         update_hello_time_HAT(recvOnEtherPort);
 
                         char *helloMsg2 = "PDU [Hello] Received";
-                        MTPlog(helloMsg2, recvOnEtherPort, MSG_RECV, MTP_TYPE_PERODIC_MSG);
+                        MTPlog(helloMsg2, recvOnEtherPort, MSG_RECV, MTP_TYPE_PERODIC_MSG, 2);
 
                         //if(retMainVID == false && retCPVID == false && !isRoot)
                         if (retMainVID2 == false && retCPVID2 == false && currentVIDTableSize2 < MAX_VID_ENTRIES &&
@@ -528,7 +529,7 @@ void runMTP()
                             VID_ADD) // Operation option 00000001 (1): VIDs included in message should be considered for table addition
                         {
                             char *ReceivedAdvtAddMsg = "PDU [add] Received";
-                            MTPlog(ReceivedAdvtAddMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_VID_ADVT);
+                            MTPlog(ReceivedAdvtAddMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_VID_ADVT, treeNo);
 
                             /* MTP ADVERTISMENT HEADER FIELD 2 (1 byte): VID COUNT */
                             uint8_t numberVIDS = (uint8_t) recvBuffer[16]; // Up to three VIDs can be included in a single VID Advertisment message
@@ -560,7 +561,7 @@ void runMTP()
 
                                 if (ret == 1) // VID is a child of a VID in the main VID table
                                 {
-                                    // if this is the first VID in the table and is a child, we have to add into child PVID Table
+                                    // if this is the first VID in the ADVT and is a child, we have to add into child PVID Table
                                     if (numberVIDS == (uint8_t) recvBuffer[16]) {
                                         // if same first ID
                                         struct child_pvid_tuple *new_cpvid = (struct child_pvid_tuple *) calloc(1,
@@ -580,12 +581,23 @@ void runMTP()
                                             char CPVIDAdditionInfo[22 + vid_len];
                                             snprintf(CPVIDAdditionInfo, sizeof(CPVIDAdditionInfo),
                                                      "%s Added to CPVID Table", vid_addr);
-                                            MTPlog(CPVIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT);
+                                            MTPlog(CPVIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT, treeNo);
                                         } else {
                                             free(new_cpvid); // If already there deallocate node memory
                                             // update CPVID time here
                                         }
                                     }
+                                        // If it is a child but it is in the second or third spot, just try and delete because it's bad if its there
+                                    else if(numberVIDS < (uint8_t) recvBuffer[16])
+                                    {
+                                        if(delete_MACentry_cpvid_LL((struct ether_addr *)&eheader->ether_shost))
+                                        {
+                                            char CPVIDRemovalInfo[26 + vid_len];
+                                            snprintf(CPVIDRemovalInfo, sizeof(CPVIDRemovalInfo), "%s Removed from CPVID Table", vid_addr);
+                                            MTPlog(CPVIDRemovalInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT, treeNo);
+                                        }
+                                    }
+
                                 }
 
                                     // Add to Main VID Table, if not a child, make it PVID if there is no better path already in the table.
@@ -616,14 +628,14 @@ void runMTP()
                                             char VIDAdditionInfo[29 + vid_len];
                                             snprintf(VIDAdditionInfo, sizeof(VIDAdditionInfo),
                                                      "%s Added to Main VID Table [%d]", vid_addr, new_node->membership);
-                                            MTPlog(VIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT);
+                                            MTPlog(VIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT, treeNo);
 
                                             hasAdditions = true;
                                         } else if (mainVIDTracker == 2) {
                                             char VIDAdditionInfo[31 + vid_len];
                                             snprintf(VIDAdditionInfo, sizeof(VIDAdditionInfo),
                                                      "%s Added to Backup VID Table [%d]", vid_addr, new_node->membership);
-                                            MTPlog(VIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT);
+                                            MTPlog(VIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT, treeNo);
                                         }
 
                                         // If peer has VID derived from me earlier and has a change now.
@@ -655,7 +667,7 @@ void runMTP()
                             }
                         } else if (operation == VID_DEL) {
                             char *ReceivedAdvtDelMsg = "PDU [Del] Received";
-                            MTPlog(ReceivedAdvtDelMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_VID_DEL_ADVT);
+                            MTPlog(ReceivedAdvtDelMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_VID_DEL_ADVT, treeNo);
 
                             // Message ordering <MSG_TYPE> <OPERATION> <NUMBER_VIDS> <VID_ADDR_LEN> <MAIN_TABLE_VID + EGRESS PORT>
                             uint8_t numberVIDS = (uint8_t) recvBuffer[16];
@@ -728,7 +740,7 @@ void runMTP()
                             VID_ADD) // Operation option 00000001 (1): VIDs included in message should be considered for table addition
                         {
                             char *ReceivedAdvtAddMsg = "PDU [add] Received";
-                            MTPlog(ReceivedAdvtAddMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_VID_ADVT);
+                            MTPlog(ReceivedAdvtAddMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_VID_ADVT, treeNo);
 
                             /* MTP ADVERTISMENT HEADER FIELD 2 (1 byte): VID COUNT */
                             uint8_t numberVIDS = (uint8_t) recvBuffer[16]; // Up to three VIDs can be included in a single VID Advertisment message
@@ -760,7 +772,7 @@ void runMTP()
 
                                 if (ret == 1) // VID is a child of a VID in the main VID table
                                 {
-                                    // if this is the first VID in the table and is a child, we have to add into child PVID Table
+                                    // if this is the first VID in the ADVT and is a child, we have to add into child PVID Table
                                     if (numberVIDS == (uint8_t) recvBuffer[16]) {
                                         // if same first ID
                                         struct child_pvid_tuple *new_cpvid = (struct child_pvid_tuple *) calloc(1,
@@ -780,10 +792,20 @@ void runMTP()
                                             char CPVIDAdditionInfo[22 + vid_len];
                                             snprintf(CPVIDAdditionInfo, sizeof(CPVIDAdditionInfo),
                                                      "%s Added to CPVID Table", vid_addr);
-                                            MTPlog(CPVIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT);
+                                            MTPlog(CPVIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT, treeNo);
                                         } else {
                                             free(new_cpvid); // If already there deallocate node memory
                                             // update CPVID time here
+                                        }
+                                    }
+                                        // If it is a child but it is in the second or third spot, just try and delete because it's bad if its there
+                                    else if(numberVIDS < (uint8_t) recvBuffer[16])
+                                    {
+                                        if(delete_MACentry_cpvid_LL((struct ether_addr *)&eheader->ether_shost))
+                                        {
+                                            char CPVIDRemovalInfo[26 + vid_len];
+                                            snprintf(CPVIDRemovalInfo, sizeof(CPVIDRemovalInfo), "%s Removed from CPVID Table", vid_addr);
+                                            MTPlog(CPVIDRemovalInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT, treeNo);
                                         }
                                     }
                                 }
@@ -816,14 +838,14 @@ void runMTP()
                                             char VIDAdditionInfo[29 + vid_len];
                                             snprintf(VIDAdditionInfo, sizeof(VIDAdditionInfo),
                                                      "%s Added to Main VID Table [%d]", vid_addr, new_node->membership);
-                                            MTPlog(VIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT);
+                                            MTPlog(VIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT, treeNo);
 
                                             hasAdditions = true;
                                         } else if (mainVIDTracker == 2) {
                                             char VIDAdditionInfo[31 + vid_len];
                                             snprintf(VIDAdditionInfo, sizeof(VIDAdditionInfo),
                                                      "%s Added to Backup VID Table [%d]", vid_addr, new_node->membership);
-                                            MTPlog(VIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT);
+                                            MTPlog(VIDAdditionInfo, recvOnEtherPort, MSG_INFO, MTP_TYPE_VID_ADVT, treeNo);
                                         }
 
                                         // If peer has VID derived from me earlier and has a change now.
@@ -855,7 +877,7 @@ void runMTP()
                             }
                         } else if (operation == VID_DEL) {
                             char *ReceivedAdvtDelMsg = "PDU [Del] Received";
-                            MTPlog(ReceivedAdvtDelMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_VID_DEL_ADVT);
+                            MTPlog(ReceivedAdvtDelMsg, recvOnEtherPort, MSG_RECV, MTP_TYPE_VID_DEL_ADVT, treeNo);
 
                             // Message ordering <MSG_TYPE> <OPERATION> <NUMBER_VIDS> <VID_ADDR_LEN> <MAIN_TABLE_VID + EGRESS PORT>
                             uint8_t numberVIDS = (uint8_t) recvBuffer[16];
@@ -915,7 +937,8 @@ void runMTP()
                 case MTP_HAAdvt_TYPE:
                 {
                     char* ReceivedHAADVTMsg = "PDU [HAADVT] Received";
-                    MTPlog(ReceivedHAADVTMsg, recvOnEtherPort, MSG_RECV, MTP_HAAdvt_TYPE);
+                    MTPlog(ReceivedHAADVTMsg, recvOnEtherPort, MSG_RECV, MTP_HAAdvt_TYPE, 1);
+                    MTPlog(ReceivedHAADVTMsg, recvOnEtherPort, MSG_RECV, MTP_HAAdvt_TYPE, 2);
 
                     struct Host_Address_tuple *HAT = (struct Host_Address_tuple *) calloc(1, sizeof (struct Host_Address_tuple));
                     struct ether_addr *switchAddress = (struct ether_addr *) calloc(1, sizeof (struct ether_addr));
@@ -968,7 +991,8 @@ void runMTP()
                     {
                         char HATSameInfo[28 + strlen(ether_ntoa(&HAT->mac))];
                         snprintf(HATSameInfo, sizeof(HATSameInfo), "%s HAADVT returned to source", ether_ntoa(&HAT->mac));
-                        MTPlog(HATSameInfo, HAT->eth_name, MSG_INFO, MTP_HAAdvt_TYPE);
+                        MTPlog(HATSameInfo, HAT->eth_name, MSG_INFO, MTP_HAAdvt_TYPE, 1);
+                        MTPlog(HATSameInfo, HAT->eth_name, MSG_INFO, MTP_HAAdvt_TYPE, 2);
 
                         break;
                     }
@@ -989,7 +1013,8 @@ void runMTP()
 
                         char HATSwitchIDInfo[27 + strlen(ether_ntoa(&HAT->mac))];
                         snprintf(HATSwitchIDInfo, sizeof(HATSwitchIDInfo), "%s HAADVT new Switch ID [%d]", ether_ntoa(&HAT->mac), HAT->path_cost);
-                        MTPlog(HATSwitchIDInfo, HAT->eth_name, MSG_INFO, HAT_ADDED);
+                        MTPlog(HATSwitchIDInfo, HAT->eth_name, MSG_INFO, HAT_ADDED, 1);
+                        MTPlog(HATSwitchIDInfo, HAT->eth_name, MSG_INFO, HAT_ADDED, 2);
                     }
 
                         /* [Type 1] Both the MAC entry and switch ID is the same */

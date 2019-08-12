@@ -508,7 +508,9 @@ bool add_entry_HAT_LL(struct Host_Address_tuple *HAT) // added back to everythin
 
         char HATAdditionInfo[35 + strlen(ether_ntoa(&HAT->mac))];
         snprintf(HATAdditionInfo, sizeof(HATAdditionInfo), "%s Added to Main Host Table [%d] {%d}", ether_ntoa(&HAT->mac), HAT->path_cost, HAT->local);
-        MTPlog(HATAdditionInfo, HAT->eth_name, MSG_INFO, HAT_ADDED);
+        MTPlog(HATAdditionInfo, HAT->eth_name, MSG_INFO, HAT_ADDED,1);
+        MTPlog(HATAdditionInfo, HAT->eth_name, MSG_INFO, HAT_ADDED,2);
+
     }
 
     return newAddition;
@@ -533,7 +535,9 @@ bool add_entry_bkp_HAT_LL(struct Host_Address_tuple *HAT)
 
         char HATBckupAdditionInfo[37 + strlen(ether_ntoa(&HAT->mac))];
         snprintf(HATBckupAdditionInfo, sizeof(HATBckupAdditionInfo), "%s Added to Backup Host Table [%d] {%d}", ether_ntoa(&HAT->mac), HAT->path_cost, HAT->local);
-        MTPlog(HATBckupAdditionInfo, HAT->eth_name, MSG_INFO, HAT_ADDED);
+        MTPlog(HATBckupAdditionInfo, HAT->eth_name, MSG_INFO, HAT_ADDED, 1);
+        MTPlog(HATBckupAdditionInfo, HAT->eth_name, MSG_INFO, HAT_ADDED, 2);
+
     }
 
     return TRUE;
@@ -567,7 +571,7 @@ bool delete_entry_LL(char *vid_to_delete)
             {
                 char VIDDeletionInfo[32 + strlen(current->vid_addr) + strlen(vid_to_delete)];
                 snprintf(VIDDeletionInfo, sizeof(VIDDeletionInfo), "%s {%d} Deleted From VID Table [%s]", current->vid_addr, current->membership, vid_to_delete);
-                MTPlog(VIDDeletionInfo, current->eth_name, MSG_INFO, VID_REMOVED);
+                MTPlog(VIDDeletionInfo, current->eth_name, MSG_INFO, VID_REMOVED, 1);
             }
 
             struct vid_addr_tuple *temp = current;
@@ -627,7 +631,7 @@ bool delete_entry_LL2(char *vid_to_delete)
             {
                 char VIDDeletionInfo[32 + strlen(current->vid_addr) + strlen(vid_to_delete)];
                 snprintf(VIDDeletionInfo, sizeof(VIDDeletionInfo), "%s {%d} Deleted From VID Table [%s]", current->vid_addr, current->membership, vid_to_delete);
-                MTPlog(VIDDeletionInfo, current->eth_name, MSG_INFO, VID_REMOVED);
+                MTPlog(VIDDeletionInfo, current->eth_name, MSG_INFO, VID_REMOVED, 2);
             }
 
             struct vid_addr_tuple *temp = current;
@@ -693,7 +697,7 @@ bool delete_entry_cpvid_LL(char *cpvid_to_be_deleted)
         {
             char CPVIDDeletionInfo[29 + strlen(current->vid_addr) + strlen(cpvid_to_be_deleted)];
             snprintf(CPVIDDeletionInfo, sizeof(CPVIDDeletionInfo), "%s Deleted From CPVID Table [%s]", current->vid_addr, cpvid_to_be_deleted);
-            MTPlog(CPVIDDeletionInfo, current->child_port, MSG_INFO, VID_REMOVED);
+            MTPlog(CPVIDDeletionInfo, current->child_port, MSG_INFO, VID_REMOVED, 1);
 
             struct child_pvid_tuple *temp = current;
 
@@ -731,7 +735,7 @@ bool delete_entry_cpvid_LL2(char *cpvid_to_be_deleted)
         {
             char CPVIDDeletionInfo[29 + strlen(current->vid_addr) + strlen(cpvid_to_be_deleted)];
             snprintf(CPVIDDeletionInfo, sizeof(CPVIDDeletionInfo), "%s Deleted From CPVID Table [%s]", current->vid_addr, cpvid_to_be_deleted);
-            MTPlog(CPVIDDeletionInfo, current->child_port, MSG_INFO, VID_REMOVED);
+            MTPlog(CPVIDDeletionInfo, current->child_port, MSG_INFO, VID_REMOVED, 2);
 
             struct child_pvid_tuple *temp = current;
 
@@ -890,7 +894,8 @@ void delete_entry_HAT_LL(struct Host_Address_tuple *node)
         {
             char HATDelInfo[35 + strlen(ether_ntoa(&node->mac))];
             snprintf(HATDelInfo, sizeof(HATDelInfo), "%s Deleted from Main Host Table [%d]", ether_ntoa(&node->mac), node->path_cost);
-            MTPlog(HATDelInfo, node->eth_name, MSG_INFO, HAT_REMOVED);
+            MTPlog(HATDelInfo, node->eth_name, MSG_INFO, HAT_REMOVED, 1);
+            MTPlog(HATDelInfo, node->eth_name, MSG_INFO, HAT_REMOVED, 2);
 
             if (current == HAT_head)
             {
@@ -927,7 +932,8 @@ void delete_entry_bkp_HAT_LL(struct Host_Address_tuple *node)
         {
             char HATDelBckupInfo[37 + strlen(ether_ntoa(&node->mac))];
             snprintf(HATDelBckupInfo, sizeof(HATDelBckupInfo), "%s Deleted From Backup Host Table [%d]", ether_ntoa(&node->mac), node->path_cost);
-            MTPlog(HATDelBckupInfo, node->eth_name, MSG_INFO, HAT_REMOVED);
+            MTPlog(HATDelBckupInfo, node->eth_name, MSG_INFO, HAT_REMOVED, 1);
+            MTPlog(HATDelBckupInfo, node->eth_name, MSG_INFO, HAT_REMOVED, 2);
 
             if (bkpcurrent == HAT_bkp_head)
             {
@@ -1301,14 +1307,14 @@ int find_port_arrival(struct Host_Address_tuple *node)
  */
 int isPrimaryChild(char *vid)
 {
-    //checking only the Main VID table.
+    //checking only the Main VID table and ONLY THE FIRST ENTRY
     if(primary_vid_tbl_head != NULL)
     {
         struct vid_addr_tuple *current = primary_vid_tbl_head;
         int lenInputVID = strlen(vid);
 
-        while(current != NULL)
-        {
+        //while(current != NULL)
+        //{
             int lenCurrentVID = strlen(current->vid_addr);
 
             // This check is if we get a parent ID
@@ -1339,7 +1345,7 @@ int isPrimaryChild(char *vid)
                 return 1;
             }
             current = current->next;
-        }
+        //}
     }
     //printf("\nwe hit the -1");
     return -1;
@@ -1353,8 +1359,8 @@ int isSecondaryChild(char *vid)
         struct vid_addr_tuple *current = secondary_vid_tbl_head;
         int lenInputVID = strlen(vid);
 
-        while(current != NULL)
-        {
+        //while(current != NULL)
+        //{
             int lenCurrentVID = strlen(current->vid_addr);
 
             // This check is if we get a parent ID
@@ -1385,7 +1391,7 @@ int isSecondaryChild(char *vid)
                 return 1;
             }
             current = current->next;
-        }
+        //}
     }
     //printf("\nwe hit the -1");
     return -1;
@@ -1774,7 +1780,8 @@ bool update_main_HAT_LL(struct Host_Address_tuple *node)
 
             char HATupdateInfo[30 + strlen(ether_ntoa(&node->mac))];
             snprintf(HATupdateInfo, sizeof(HATupdateInfo), "%s updated main path cost to %d", ether_ntoa(&node->mac), node->path_cost);
-            MTPlog(HATupdateInfo, node->eth_name, MSG_INFO, HAT_ADDED);
+            MTPlog(HATupdateInfo, node->eth_name, MSG_INFO, HAT_ADDED, 1);
+            MTPlog(HATupdateInfo, node->eth_name, MSG_INFO, HAT_ADDED, 2);
 
             add_entry_HAT_LL(node);
             hasUpdate = true;
@@ -1822,7 +1829,8 @@ bool update_bkp_HAT_LL(struct Host_Address_tuple *node)
 
                     char HATBackupUpdateInfo[30 + strlen(ether_ntoa(&node->mac))];
                     snprintf(HATBackupUpdateInfo, sizeof(HATBackupUpdateInfo), "%s updated backup path cost to %d", ether_ntoa(&node->mac), node->path_cost);
-                    MTPlog(HATBackupUpdateInfo, node->eth_name, MSG_INFO, HAT_ADDED);
+                    MTPlog(HATBackupUpdateInfo, node->eth_name, MSG_INFO, HAT_ADDED, 1);
+                    MTPlog(HATBackupUpdateInfo, node->eth_name, MSG_INFO, HAT_ADDED, 2);
 
                     add_entry_bkp_HAT_LL(node);
                     hasUpdate = true;
@@ -2172,7 +2180,7 @@ void floodNotificationPDU(int msgType, int treeNo)
                     ctrlSend(currentMTPPort->eth_name, payload, payloadLen);
 
                     char* msg = "PDU Transmitted on MTP Port";
-                    MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, msgType);
+                    MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, msgType, treeNo);
                 }
             }
         }
@@ -2187,7 +2195,7 @@ void floodNotificationPDU(int msgType, int treeNo)
                     ctrlSend(currentHostPort->eth_name, payload, payloadLen);
 
                     char* msg = "PDU Transmitted on Host Port";
-                    MTPlog(msg, currentHostPort->eth_name, MSG_SENT, msgType);
+                    MTPlog(msg, currentHostPort->eth_name, MSG_SENT, msgType, treeNo);
                 }
             }
         }
@@ -2218,7 +2226,7 @@ void sendVIDUpdatePDU_ADD(char* interface, int treeNo)
                     ctrlSend(currentMTPPort->eth_name, payload, payloadLen);
 
                     char* msg = "PDU [Add] Transmitted on MTP Port";
-                    MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, MTP_TYPE_VID_ADVT);
+                    MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, MTP_TYPE_VID_ADVT, treeNo);
                 }
                 free(payload);
             }
@@ -2239,7 +2247,7 @@ void sendVIDUpdatePDU_ADD(char* interface, int treeNo)
                     ctrlSend(currentHostPort->eth_name, payload, payloadLen);
 
                     char* msg = "PDU [Add] Transmitted on Host Port";
-                    MTPlog(msg, currentHostPort->eth_name, MSG_SENT, MTP_TYPE_VID_ADVT);
+                    MTPlog(msg, currentHostPort->eth_name, MSG_SENT, MTP_TYPE_VID_ADVT, treeNo);
                 }
                 free(payload);
             }
@@ -2255,7 +2263,7 @@ void sendVIDUpdatePDU_ADD(char* interface, int treeNo)
             ctrlSend(interface, payload, payloadLen);
 
             char* msg = "PDU [Add] Transmitted";
-            MTPlog(msg, interface, MSG_SENT, MTP_TYPE_VID_ADVT);
+            MTPlog(msg, interface, MSG_SENT, MTP_TYPE_VID_ADVT, treeNo);
         }
         free(payload);
     }
@@ -2281,7 +2289,7 @@ void sendVIDUpdatePDU_DEL(char** deletedVIDs, int numberOfDeletions, int treeNo)
                 ctrlSend(currentMTPPort->eth_name, payload, payloadLen);
 
                 char* msg = "PDU [Del] Transmitted on MTP Port";
-                MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, MTP_TYPE_VID_DEL_ADVT);
+                MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, MTP_TYPE_VID_DEL_ADVT, treeNo);
             }
             free(payload);
         }
@@ -2307,7 +2315,8 @@ void sendHostUpdatePDU(struct Host_Address_tuple* HAT, char* recvOnEtherPort)
             ctrlSend(currentMTPPort->eth_name, payload, payloadLen);
 
             char* msg = "PDU [HAADVT] Transmitted on MTP Port";
-            MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, MTP_HAAdvt_TYPE);
+            MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, MTP_HAAdvt_TYPE, 1);
+            MTPlog(msg, currentMTPPort->eth_name, MSG_SENT, MTP_HAAdvt_TYPE, 2);
         }
     }
     free(payload);
@@ -2329,7 +2338,8 @@ bool attemptUnicastSwitching(uint8_t *rx_buffer, struct ether_header *head, int 
 
             char switchStuff[18 + strlen(ether_ntoa(&current->mac))];
             snprintf(switchStuff, sizeof(switchStuff), "%s unicast switched", ether_ntoa(&current->mac));
-            MTPlog(switchStuff, current->eth_name, MSG_INFO, MTP_HAAdvt_TYPE);
+            MTPlog(switchStuff, current->eth_name, MSG_INFO, MTP_HAAdvt_TYPE, 1);
+            MTPlog(switchStuff, current->eth_name, MSG_INFO, MTP_HAAdvt_TYPE, 2);
 
             return TRUE;
         }
@@ -2370,7 +2380,7 @@ int checkForPrimaryFailuresVID(char **deletedVIDs)
             {
                 snprintf(VIDFailureInfo, sizeof(VIDFailureInfo), "%s {%d} Failed From VID Table [1MH]", current->vid_addr, current->membership);
             }
-            MTPlog(VIDFailureInfo, current->eth_name, MSG_INFO, VID_REMOVED);
+            MTPlog(VIDFailureInfo, current->eth_name, MSG_INFO, VID_REMOVED, 1);
             /* Logging failure information */
 
             struct vid_addr_tuple *temp = current;
@@ -2433,7 +2443,7 @@ int checkForSecondaryFailuresVID(char **deletedVIDs)
             {
                 snprintf(VIDFailureInfo, sizeof(VIDFailureInfo), "%s {%d} Failed From VID Table [1MH]", current->vid_addr, current->membership);
             }
-            MTPlog(VIDFailureInfo, current->eth_name, MSG_INFO, VID_REMOVED);
+            MTPlog(VIDFailureInfo, current->eth_name, MSG_INFO, VID_REMOVED, 2);
             /* Logging failure information */
 
             struct vid_addr_tuple *temp = current;
@@ -2505,7 +2515,7 @@ bool checkForPrimaryFailuresCPVID()
             {
                 snprintf(CPVIDFailureInfo, sizeof(CPVIDFailureInfo), "%s Failed From CPVID Table [1MH]", current->vid_addr);
             }
-            MTPlog(CPVIDFailureInfo, current->child_port, MSG_INFO, VID_REMOVED);
+            MTPlog(CPVIDFailureInfo, current->child_port, MSG_INFO, VID_REMOVED, 1);
             /* Logging failure information */
 
             struct child_pvid_tuple *temp = current;
@@ -2556,7 +2566,7 @@ bool checkForSecondaryFailuresCPVID()
             {
                 snprintf(CPVIDFailureInfo, sizeof(CPVIDFailureInfo), "%s Failed From CPVID Table [1MH]", current->vid_addr);
             }
-            MTPlog(CPVIDFailureInfo, current->child_port, MSG_INFO, VID_REMOVED);
+            MTPlog(CPVIDFailureInfo, current->child_port, MSG_INFO, VID_REMOVED, 2);
             /* Logging failure information */
 
             struct child_pvid_tuple *temp = current;
@@ -2617,7 +2627,8 @@ bool checkForFailuresHAT()
             {
                 snprintf(HATFailureInfo, sizeof(HATFailureInfo), "%s Failed From Main Host Table [1MH]", ether_ntoa(&current->mac));
             }
-            MTPlog(HATFailureInfo, current->eth_name, MSG_INFO, HAT_REMOVED);
+            MTPlog(HATFailureInfo, current->eth_name, MSG_INFO, HAT_REMOVED, 1);
+            MTPlog(HATFailureInfo, current->eth_name, MSG_INFO, HAT_REMOVED, 2);
 
             /* Copy the failed entry and its interface into temporary storage spaces */
             memcpy(temp_HAT, current, sizeof(struct Host_Address_tuple));
@@ -2739,7 +2750,7 @@ void checkForPrimaryLinkFailure()
 
             char LinkFailureInfo[18];
             snprintf(LinkFailureInfo, sizeof(LinkFailureInfo), "Interface Failure");
-            MTPlog(LinkFailureInfo, currentMTPPort->eth_name, MSG_INFO, FAILURE_ALERT);
+            MTPlog(LinkFailureInfo, currentMTPPort->eth_name, MSG_INFO, FAILURE_ALERT, 1);
 
             /* Check the Main and Backup VID Tables */
             struct vid_addr_tuple *currentVID;
@@ -2787,7 +2798,7 @@ void checkForSecondaryLinkFailure()
 
             char LinkFailureInfo[18];
             snprintf(LinkFailureInfo, sizeof(LinkFailureInfo), "Interface Failure");
-            MTPlog(LinkFailureInfo, currentMTPPort->eth_name, MSG_INFO, FAILURE_ALERT);
+            MTPlog(LinkFailureInfo, currentMTPPort->eth_name, MSG_INFO, FAILURE_ALERT, 2);
 
             /* Check the Main and Backup VID Tables */
             struct vid_addr_tuple *currentVID;
@@ -2965,7 +2976,8 @@ bool check_cost99_sequence_no(struct Host_Address_tuple *node)
 
                     char HATNineNineInfo[24 + strlen(ether_ntoa(&node->mac))];
                     snprintf(HATNineNineInfo, sizeof(HATNineNineInfo), "%s Exceeded Max Cost [%d]", ether_ntoa(&node->mac), node->path_cost);
-                    MTPlog(HATNineNineInfo, node->eth_name, MSG_INFO, HAT_REMOVED);
+                    MTPlog(HATNineNineInfo, node->eth_name, MSG_INFO, HAT_REMOVED, 1);
+                    MTPlog(HATNineNineInfo, node->eth_name, MSG_INFO, HAT_REMOVED, 2);
 
                     for(bkpcurrent = HAT_bkp_head; bkpcurrent != NULL; bkpcurrent = bkpcurrent->next)
                     {
@@ -3291,7 +3303,7 @@ void print_HAAdvt_message_content(uint8_t *rx_buffer)
 
 
 /************************ IN PROGRESS PROTOTYPE FUNCTIONS ************************/
-void MTPlog(char* logMessage, char* interfaceName, int direction, int messageType)
+void MTPlog(char* logMessage, char* interfaceName, int direction, int messageType, int treeNo)
 {
     clockid_t clk_id = CLOCK_REALTIME;
     const uint TIME_FORMAT_LENGTH = strlen("2000-12-31 12:59:59.123456789") + 1;
@@ -3306,10 +3318,19 @@ void MTPlog(char* logMessage, char* interfaceName, int direction, int messageTyp
 
     else
     {
-        FILE *logFile = fopen("mtpd.log", "a");
-        fprintf(logFile, "%s|%s|%d|%d|%s\n", timeStampFormat, interfaceName, direction, messageType, logMessage);
-        //fflush(logFile);
-        fclose(logFile);
+        if(treeNo==1) {
+            FILE *logFile = fopen("mtpd_1.log", "a");
+            fprintf(logFile, "%s|%s|%d|%d|%s\n", timeStampFormat, interfaceName, direction, messageType, logMessage);
+            //fflush(logFile);
+            fclose(logFile);
+        }
+        else{
+            FILE *logFile = fopen("mtpd_2.log", "a");
+            fprintf(logFile, "%s|%s|%d|%d|%s\n", timeStampFormat, interfaceName, direction, messageType, logMessage);
+            //fflush(logFile);
+            fclose(logFile);
+        }
+
     }
 
     return;
