@@ -143,6 +143,12 @@ struct path_cost_tuple
     struct path_cost_tuple *next;
 };
 
+struct quarantine_table
+{
+    char vid_addr[VID_ADDR_LEN];
+    time_t added;
+    struct quarantine_table *next;
+};
 /* Function Prototypes for payloads */
 int  build_JOIN_MSG_PAYLOAD(uint8_t *);
 int  build_PERIODIC_MSG_PAYLOAD(uint8_t *, int);
@@ -203,6 +209,12 @@ bool find_entry_lbcast_LL(struct local_bcast_tuple *);
 void printLocalHostBroadcastTable();
 bool delete_entry_lbcast_LL(char *port);
 struct local_bcast_tuple* getInstance_lbcast_LL();
+
+/* Function prototypes for Quarantine table */
+bool add_entry_QL(struct quarantine_table *);
+bool find_entry_QL(struct quarantine_table *);
+bool update_entry_QL(struct quarantine_table *);
+bool delete_entry_QL(char *);
 
 /* Function prototypes for the Host Address Table  */
 bool add_entry_HAT_LL(struct Host_Address_tuple *);

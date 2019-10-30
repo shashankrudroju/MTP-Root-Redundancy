@@ -234,7 +234,7 @@ void runMTP()
             add_entry_LL2(new_node); // Add into Main VID Table (only VID that this node will receive)
 
             int treeNo = 2;
-            treeStable = true;
+            treeStable = false;
             sendVIDUpdatePDU_ADD(ALL_HOST_PORTS, treeNo);
 
             printf("Sending out join msg for tree 1 \n");
@@ -290,6 +290,13 @@ void runMTP()
             int i = 0;
             for (; i < numberOfDeletions; i++)
             {
+                 struct quarantine_table *new_node = (struct quarantine_table*) calloc(1, sizeof(struct quarantine_table));
+                 strncpy(new_node->vid_addr, deletedVIDs[i], strlen(deletedVIDs[i]));
+                 new_node->next = NULL;
+                 time(&new_node->added);
+                 if(add_entry_QL(new_node)){
+                    printQuarantine();}  
+
                 delete_entry_cpvid_LL(deletedVIDs[i]); // Delete any CPVID that matches any of the deleted VIDs
             }
 
@@ -320,6 +327,14 @@ void runMTP()
             int i = 0;
             for (; i < numberOfDeletions2; i++)
             {
+                 struct quarantine_table *new_node = (struct quarantine_table*) calloc(1, sizeof(struct quarantine_table));
+                 strncpy(new_node->vid_addr, deletedVIDs2[i], strlen(deletedVIDs2[i]));
+                 new_node->next = NULL;
+                 time(&new_node->added);
+                 if(add_entry_QL(new_node)){
+                    printQuarantine();
+                }
+
                 delete_entry_cpvid_LL2(deletedVIDs2[i]); // Delete any CPVID that matches any of the deleted VIDs
             }
 
@@ -342,6 +357,7 @@ void runMTP()
         {
             int treeNo = 3;
             bool sendJoin = false;
+            /*
             if (!isPrimary_VID_Table_Empty() && !isSecondary_VID_Table_Empty()) {
                 treeNo = 0;
             } else {
@@ -366,7 +382,28 @@ void runMTP()
             }
             if(sendJoin){
                 floodNotificationPDU(MTP_TYPE_JOIN_MSG, treeNo); // Send a Join MT_PDU out of all host interfaces to look for MTS neighbors
+            }*/
+            if ( treetoUse == 1)
+            {
+                if (isPrimary_VID_Table_Empty())
+                {
+                    floodNotificationPDU(MTP_TYPE_JOIN_MSG, 1);
+                }
+                else
+                {
+                    if (!isPrimaryRoot || (isPrimaryRoot && getInstance_cpvid_LL() != NULL))
+                        floodNotificationPDU(MTP_TYPE_PERODIC_MSG, 1);
+                }
             }
+            if( isSecondary_VID_Table_Empty())
+            {
+                floodNotificationPDU(MTP_TYPE_JOIN_MSG, 2);
+            }
+            else {
+                    if (!isSecondaryRoot || (isSecondaryRoot && getInstance_cpvid_LL2() != NULL)) {
+                        floodNotificationPDU(MTP_TYPE_PERODIC_MSG, 2);
+                    }
+                }
             time(&time_advt_beg); // Reset the Periodic Hello Timer
         }
 
@@ -411,6 +448,7 @@ void runMTP()
                 }
             }
             int treeNo;
+            check_quarantine_timer();
             //switch statement for 14th index of recvBuffer (frame),
             switch (recvBuffer[14])
             {
@@ -439,7 +477,7 @@ void runMTP()
                     break;
 
                     /*
-                     *MT_HELLO – this message is a keep-alive indicator and issued periodically on all MTP_ports by a switch running the MTP.
+                     *MT_HELLO â€“ this message is a keep-alive indicator and issued periodically on all MTP_ports by a switch running the MTP.
              A root switch that sends *this message will carry the MT_VID of the root switch. A non-root switch that sends this message will carry
              all of its MT_VIDs.
                     */
@@ -692,11 +730,20 @@ void runMTP()
                                 strncpy(deletedVIDs[i], &recvBuffer[tracker], vid_len);
                                 recvBuffer[vid_len] = '\0';
 
-                                hasDeletions = delete_entry_LL(
-                                        deletedVIDs[i]); // Communicate the deletion of any VIDs YOU own
+                                hasDeletions = delete_entry_LL(deletedVIDs[i]); // Communicate the deletion of any VIDs YOU own
+                                 
+                        
+
                                 delete_entry_cpvid_LL(deletedVIDs[i]);
 
                                 if (hasDeletions) {
+                                    struct quarantine_table *new_node = (struct quarantine_table*) calloc(1, sizeof(struct quarantine_table));
+                                strncpy(new_node->vid_addr, deletedVIDs[i], strlen(deletedVIDs[i]));
+                                new_node->next = NULL;
+                                time(&new_node->added);
+                                if(add_entry_QL(new_node)){
+                                    printQuarantine();
+                                    }  
                                     needToCommDeletions = true;
                                 }
 
@@ -907,6 +954,13 @@ void runMTP()
                                 delete_entry_cpvid_LL2(deletedVIDs[i]);
 
                                 if (hasDeletions) {
+                                    struct quarantine_table *new_node = (struct quarantine_table*) calloc(1, sizeof(struct quarantine_table));
+                                strncpy(new_node->vid_addr, deletedVIDs[i], strlen(deletedVIDs[i]));
+                                new_node->next = NULL;
+                                time(&new_node->added);
+                                if(add_entry_QL(new_node)){
+                                    printQuarantine();
+                                    }  
                                     needToCommDeletions = true;
                                 }
 

@@ -12,8 +12,9 @@ struct Host_Address_tuple *HAT_head = NULL;
 struct Host_Address_tuple *HAT_bkp_head = NULL;
 struct control_ports *control_ports_head = NULL;
 struct path_cost_tuple *path_cost_head = NULL;
+struct quarantine_table *quarantine_head = NULL;
 
-
+void printQuarantine();
 /************************ TABLE LOCATION FUNCTIONS ************************/
 /**
  *              Get Instance of Main VID Table.
@@ -34,6 +35,14 @@ struct vid_addr_tuple* getInstance_vid_tbl_LL2()
 }
 
 /**
+        Get Instance of Quarantine Table
+**/
+struct quarantine_table* getInstance_quar_tbl()
+{
+    return quarantine_head;
+}
+/**
+
  *    Get instance of child of PVID Table.
  *    Child PVID Table,    Implemented Using linked list.
  *    Head Ptr,   *primary_cpvid_tbl_head
@@ -351,8 +360,93 @@ int add_entry_LL(struct vid_addr_tuple *node)
 
 	return -1;
 }
+/**
+Adding quarantine table
 */
+bool add_entry_QL(struct quarantine_table *node)
+{
+    bool newAddition = false;
 
+    if(quarantine_head != NULL)
+    {
+
+        if(!find_entry_QL(node))
+        {
+            node->next = quarantine_head;
+            quarantine_head = node;
+            newAddition = true;
+        }
+    }
+
+    else
+    {
+        quarantine_head = node;
+        newAddition = true;
+    }
+    if(newAddition)
+    {
+        char QVIDDeletionInfo[29 + strlen(node->vid_addr)];
+        snprintf(QVIDDeletionInfo, sizeof(QVIDDeletionInfo), "%s Added to Quarantine", node->vid_addr);
+        MTPlog(QVIDDeletionInfo, "eth0", MSG_INFO, VID_REMOVED, 1);
+    }
+    return newAddition;
+}
+bool find_entry_QL(struct quarantine_table *node)
+{
+    if (quarantine_head != NULL)
+    {
+        struct quarantine_table *current = quarantine_head;
+        while (current != NULL)
+        {
+            if (strcmp(current->vid_addr, node->vid_addr) == 0)
+            {
+                return true;
+            }
+            current = current->next;
+        }
+    }
+    return false;
+}
+
+bool delete_entry_QL(char *vid)
+{
+    struct quarantine_table *current = quarantine_head;
+    struct quarantine_table *previous = NULL;
+    bool hasDeletions = false;
+
+    while (current != NULL)
+    {
+        if (strncmp(vid, current->vid_addr, strlen(current->vid_addr)) == 0)
+        {
+            
+            char QVIDDeletionInfo[29 + strlen(current->vid_addr) + strlen(vid)];
+            snprintf(QVIDDeletionInfo, sizeof(QVIDDeletionInfo), "%s Deleted From Quarantine [%s]", current->vid_addr, vid);
+            MTPlog(QVIDDeletionInfo, "eth0", MSG_INFO, VID_REMOVED, 1);
+
+            struct quarantine_table *temp = current;
+
+            if (previous == NULL)
+            {
+                quarantine_head = current->next;
+            }
+
+            else
+            {
+                previous->next = current->next;
+            }
+
+            current = current->next;
+            free(temp);
+            hasDeletions = true;
+            printQuarantine();
+            continue;
+        }
+
+        previous = current;
+        current = current->next;
+    }
+    return hasDeletions;
+}
 /**
  *    Add into the Child PVID Table.
  *    Child PVID Table,    Implemented Using linked list.
@@ -1308,13 +1402,15 @@ int find_port_arrival(struct Host_Address_tuple *node)
 int isPrimaryChild(char *vid)
 {
     //checking only the Main VID table and ONLY THE FIRST ENTRY
+    int lenInputVID = strlen(vid);
+    int counter = 0;
     if(primary_vid_tbl_head != NULL)
     {
         struct vid_addr_tuple *current = primary_vid_tbl_head;
-        int lenInputVID = strlen(vid);
-
-        //while(current != NULL)
-        //{
+        
+        while(current != NULL)
+        {
+            counter++;
             int lenCurrentVID = strlen(current->vid_addr);
 
             // This check is if we get a parent ID
@@ -1335,7 +1431,7 @@ int isPrimaryChild(char *vid)
             else if(strncmp(vid, current->vid_addr, lenCurrentVID) == 0)
             {
                 //printf("\nlength of current VID: %d\nlength of input VID: %d", lenCurrentVID, lenInputVID);
-                if(lenInputVID > (lenCurrentVID + 2))
+                if(lenInputVID > (lenCurrentVID + 2) || counter>1)
                 {
                     //printf("\nwe hit the 3");
                     return 3;
@@ -1345,7 +1441,37 @@ int isPrimaryChild(char *vid)
                 return 1;
             }
             current = current->next;
-        //}
+        }
+    }
+    if(quarantine_head != NULL)
+    {
+        struct quarantine_table *current1 = quarantine_head;
+        
+        while(current1 != NULL)
+        {
+            int lenCurrentVID = strlen(current1->vid_addr);
+
+            // This check is if we get a parent ID
+            if((lenInputVID == lenCurrentVID) && strncmp(vid, current1->vid_addr, lenCurrentVID) == 0)
+            {
+                //printf("\nwe hit the 2");
+                return 2;
+            }
+
+            else if(strncmp(vid, current1->vid_addr, lenCurrentVID) == 0)
+            {
+                //printf("\nlength of current VID: %d\nlength of input VID: %d", lenCurrentVID, lenInputVID);
+                if(lenInputVID > (lenCurrentVID + 2))
+                {
+                    //printf("\nwe hit the 3");
+                    return 3;
+                }
+
+                //printf("\nwe hit the 1");
+                return 1;
+            }
+            current1 = current1->next;
+        }
     }
     //printf("\nwe hit the -1");
     return -1;
@@ -1354,14 +1480,17 @@ int isPrimaryChild(char *vid)
 int isSecondaryChild(char *vid)
 {
     //checking only the Main VID table.
+    int lenInputVID = strlen(vid);
+    int counter=0;
+
     if(secondary_vid_tbl_head != NULL)
     {
         struct vid_addr_tuple *current = secondary_vid_tbl_head;
-        int lenInputVID = strlen(vid);
-
-        //while(current != NULL)
-        //{
+        
+        while(current != NULL)
+        {
             int lenCurrentVID = strlen(current->vid_addr);
+            counter++;
 
             // This check is if we get a parent ID
             if(lenCurrentVID > lenInputVID && strncmp(current->vid_addr, vid, lenInputVID) == 0)
@@ -1381,7 +1510,7 @@ int isSecondaryChild(char *vid)
             else if(strncmp(vid, current->vid_addr, lenCurrentVID) == 0)
             {
                 //printf("\nlength of current VID: %d\nlength of input VID: %d", lenCurrentVID, lenInputVID);
-                if(lenInputVID > (lenCurrentVID + 2))
+                if(lenInputVID > (lenCurrentVID + 2) || counter>1)
                 {
                     //printf("\nwe hit the 3");
                     return 3;
@@ -1391,12 +1520,55 @@ int isSecondaryChild(char *vid)
                 return 1;
             }
             current = current->next;
-        //}
+        }
+    }
+    if(quarantine_head != NULL)
+    {
+        struct quarantine_table *current1 = quarantine_head;
+        
+        while(current1 != NULL)
+        {
+            int lenCurrentVID = strlen(current1->vid_addr);
+
+                // if length is same and are similar then its a duplicate no need to add.
+            if((lenInputVID == lenCurrentVID) && strncmp(vid, current1->vid_addr, lenCurrentVID) == 0)
+            {
+                //printf("\nwe hit the 2");
+                return 2;
+            }
+
+            else if(strncmp(vid, current1->vid_addr, lenCurrentVID) == 0)
+            {
+                //printf("\nlength of current VID: %d\nlength of input VID: %d", lenCurrentVID, lenInputVID);
+                if(lenInputVID > (lenCurrentVID + 2) )
+                {
+                    //printf("\nwe hit the 3");
+                    return 3;
+                }
+
+                //printf("\nwe hit the 1");
+                return 1;
+            }
+            current1 = current1->next;
+        }
     }
     //printf("\nwe hit the -1");
     return -1;
 }
 
+void check_quarantine_timer()
+{
+    time_t current;
+    time(&current);
+    struct quarantine_table* ptr = quarantine_head;
+    for(; ptr!=NULL; ptr=ptr->next)
+    {
+        if((double)(difftime(current, ptr->added) >= 5))
+        {
+            delete_entry_QL(ptr->vid_addr);
+        }
+    }
+}
 /*
  *   isMain_VID_Table_Empty -     Check if Main VID Table is empty.
  *
@@ -3018,6 +3190,21 @@ bool check_cost99_sequence_no(struct Host_Address_tuple *node)
  *		@return
  *		void
 **/
+void printQuarantine()
+{
+    struct quarantine_table *current;
+    //int tracker = MAX_MAIN_VID_TBL_PATHS;
+    int lenCurrentVID;
+
+    printf("%s\n", "####### Quarantine Table #########");
+    printf("%s \n","| MT_VID |");
+
+    for (current = quarantine_head; current != NULL ; current = current->next)
+    {
+        lenCurrentVID = strlen(current->vid_addr);
+        printf("%*s \n", (lenCurrentVID + 2), current->vid_addr);
+    }
+}
 void printPrimaryVIDTable()
 {
     struct vid_addr_tuple *current;
